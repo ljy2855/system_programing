@@ -1,6 +1,5 @@
 #include "myshell.h"
 
-
 int main(){
     char command[MAX_COMMAND_LENGTH];
     char ** args;
@@ -45,12 +44,9 @@ char** parse_command(char command[]){
 }
 
 void execute_command(char ** args){
-    char path[1024];
-    char command[1024] = "/bin/";
-    strncat(command, args[0], sizeof(args[0]));
     int status;
     __pid_t pid;
-    getcwd(path,sizeof(path));
+
     if(strcmp(args[0],"cd") == 0){
         chdir(args[1]);
     }
@@ -58,7 +54,7 @@ void execute_command(char ** args){
         if(fork() == 0){
             //child process
             //printf("%s\n",command);
-            if(execve(command, args,NULL) < 0 ){
+            if(execvp(args[0], args) < 0 ){
                 printf("%s: Command not found.\n", args[0]);
                 exit(0);
             }
