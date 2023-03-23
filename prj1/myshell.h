@@ -7,7 +7,10 @@
 
 #define MAX_ARGS 100
 #define MAX_COMMAND_LENGTH 200
+#define MAX_PIPELINE 10
 #define SIZE_OF_CHAR_POINTER sizeof(char*)
+#define SIZE_OF_CHAR_DOUBLE_POINTER sizeof(char**)
 
-char** parse_command(char command[]);
-void execute_command(char ** args);
+void parse_command(char command[],int * pipe_commands_count, char ** args[]);
+void execute_command(char ** args[]);
+void execute_excp_command(char ** args);
