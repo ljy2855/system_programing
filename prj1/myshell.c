@@ -7,6 +7,8 @@ int main(){
     do {
         printf("CSE4100:P1-myshell>");
         fgets(command,MAX_COMMAND_LENGTH,stdin);
+        if(command[0] == '\n')
+            continue;
         command[strcspn(command, "\n")] = 0;
         args = parse_command(command);
         execute_command(args);
@@ -15,6 +17,9 @@ int main(){
     }while (1);
     
 }
+
+// TODO
+// build in command ex) quit,exit
 
 char** parse_command(char command[]){
     char** result;
@@ -53,8 +58,11 @@ void execute_command(char ** args){
         if(fork() == 0){
             //child process
             //printf("%s\n",command);
-            execve(command, args,NULL);
-            exit(1);
+            if(execve(command, args,NULL) < 0 ){
+                printf("%s: Command not found.\n", args[0]);
+                exit(0);
+            }
+
         }
         else
         {
