@@ -46,19 +46,24 @@ void execute_command(char ** args){
     int status;
     __pid_t pid;
     getcwd(path,sizeof(path));
-    if(fork() == 0){
-        //child process
-        //printf("%s\n",command);
-        execve(command, args,NULL);
-        exit(1);
+    if(strcmp(args[0],"cd") == 0){
+        chdir(args[1]);
     }
-    else
-    {
-        //parent process
-        
-        wait(&status);
-        if (WEXITSTATUS(status))
+    else{
+        if(fork() == 0){
+            //child process
+            //printf("%s\n",command);
+            execve(command, args,NULL);
             exit(1);
-       
+        }
+        else
+        {
+            //parent process
+            
+            wait(&status);
+            if (WEXITSTATUS(status)) 
+                exit(1);
+        
+        }
     }
 }
