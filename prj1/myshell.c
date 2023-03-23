@@ -7,6 +7,7 @@ int main(){
     do {
         printf("CSE4100:P1-myshell>");
         fgets(command,MAX_COMMAND_LENGTH,stdin);
+        command[strcspn(command, "\n")] = 0;
         args = parse_command(command);
         execute_command(args);
 
@@ -40,13 +41,24 @@ char** parse_command(char command[]){
 
 void execute_command(char ** args){
     char path[1024];
+    char command[1024] = "/bin/";
+    strncat(command, args[0], sizeof(args[0]));
+    int status;
     __pid_t pid;
     getcwd(path,sizeof(path));
-    if(pid = fork() == 0){
+    if(fork() == 0){
         //child process
-        execlp(path, args[0],NULL);
-    }else{
+        //printf("%s\n",command);
+        execve(command, args,NULL);
+        exit(1);
+    }
+    else
+    {
         //parent process
-        wait();
+        
+        wait(&status);
+        if (WEXITSTATUS(status))
+            exit(1);
+       
     }
 }
