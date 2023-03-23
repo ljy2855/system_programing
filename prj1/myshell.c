@@ -5,21 +5,24 @@ int main(){
     char **args[MAX_PIPELINE];
     int pipe_count;
     int i;
-    do {
+    
+    do
+    {
         pipe_count = 0;
         printf("CSE4100:P1-myshell>");
-        fgets(command,MAX_COMMAND_LENGTH,stdin);
+        fgets(command, MAX_COMMAND_LENGTH, stdin);
+
         if(command[0] == '\n') // if enter, pass loop
             continue;
         command[strcspn(command, "\n")] = 0; // remove \n 
         parse_command(command,&pipe_count, args);
-        execute_command(args);
+        execute_command(args,pipe_count);
+ 
 
         for(i = 0 ; i < pipe_count; i++)
-            printf("%s\n",args[i][0]);
-            // free(args[i]);
-    }while (1);
-    
+            //printf("%s\n",args[i][0]);
+            free(args[i]);
+    } while (1);
 }
 
 void parse_command(char command[],int * pipe_commands_count, char ** args[]){
@@ -69,42 +72,82 @@ void parse_command(char command[],int * pipe_commands_count, char ** args[]){
 
 }
 
-void execute_command(char ** args[]){
+void execute_command(char ** args[], int pipe_count){
     int status;
-    __pid_t pid;
+    pid_t pid;
+    int in, fd [2];
+    in = 0;
+    int i  = 0;
+    int saved_stdout = dup(1);
+    int saved_stdin = dup(0);
 
-    execute_excp_command(args[0]);
-   
-    if(fork() == 0){
-        //child process
-        //printf("%s\n",command);
-        if(execvp(args[0][0], args[0]) < 0 ){
-            printf("%s: Command not found.\n", args[0][0]);
+    if(execute_excp_command(args[0])) return;
+    for (i = 0 ; i < pipe_count-1 ; ++i){
+        pipe(fd);
+        create_sub_process(in,fd[1],args[i]);
+        close(fd[1]);
+        in = fd[0];
+        
+        }
+    if (in != 0){
+        dup2 (in, 0);
+    }
+        
+    if(pid = fork() == 0 ){
+        close(in);
+        if (execvp(args[i][0], args[i]) < 0)
+        {
+            printf("%s: Command not found.\n", args[i][0]);
             exit(0);
         }
+        close(0);
+        
 
+    }else{
+        
+        waitpid(pid, &status, 0);
+        dup2(saved_stdin, 0);
+    }
+}
+
+int create_sub_process(int in, int out, char ** args){
+    pid_t pid;
+    int status;
+    if ((pid = fork ()) == 0)
+    {
+      if (in != STDIN_FILENO)
+        {
+          dup2 (in, STDIN_FILENO);
+          close (in);
+        }
+
+      if (out != STDOUT_FILENO)
+        {
+            dup2 (out, STDOUT_FILENO);
+            close (out);
+        }
+
+       execvp (args[0], args);
+
+       exit(0);
     }
     else
-    {
-        //parent process
-        
-        wait(&status);
-        // if (WIFEXITED(status)) 
-        //     exit(1);
+        waitpid(pid,&status,0);
     
-    }
-  
+    return pid;
 }
 
 void execute_pipeline_command(char** args){
 
 }
 
-void execute_excp_command(char ** args){
+int execute_excp_command(char ** args){
     if(strcmp(args[0],"cd") == 0){
         chdir(args[1]);
+        return 1;
     }
     else if(strcmp(args[0],"exit") == 0){
         exit(1);
     }
+    return 0;
 }

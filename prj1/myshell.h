@@ -12,5 +12,6 @@
 #define SIZE_OF_CHAR_DOUBLE_POINTER sizeof(char**)
 
 void parse_command(char command[],int * pipe_commands_count, char ** args[]);
-void execute_command(char ** args[]);
-void execute_excp_command(char ** args);
+void execute_command(char ** args[], int pipe_count);
+int execute_excp_command(char ** args);
+int create_sub_process(int in, int out, char ** args);
