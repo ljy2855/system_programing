@@ -72,13 +72,34 @@ void parse_command(char command[],int * pipe_commands_count, char ** args[]){
 
 }
 
+int parse_bg_command(char ** args){
+
+    char * cur, *temp;
+    cur = args[0];
+    int count = 0;
+    
+    while(cur != NULL){
+        if((temp = strchr(cur,'&')) != NULL){
+            if(cur[0] == '&')
+                args[count] = NULL;
+            else
+                temp[0] = NULL;
+
+            return 1;
+        }
+            
+        cur = args[++count];
+    }
+    return 0;
+}
+
 void execute_command(char ** args[], int pipe_count){
     int status;
     pid_t pid;
     int in, fd [2];
-    in = 0;
+    in = STDIN_FILENO;
     int i  = 0;
-    int saved_stdout = dup(1);
+    int is_bg_process = 0;
     int saved_stdin = dup(0);
 
     if(execute_excp_command(args[0])) return;
@@ -89,12 +110,14 @@ void execute_command(char ** args[], int pipe_count){
         in = fd[0];
         
         }
-    if (in != 0){
+    if (in != STDIN_FILENO){
         dup2 (in, 0);
     }
-        
+    is_bg_process = parse_bg_command(args[i]);
     if(pid = fork() == 0 ){
+    
         close(in);
+        
         if (execvp(args[i][0], args[i]) < 0)
         {
             printf("%s: Command not found.\n", args[i][0]);
@@ -104,9 +127,9 @@ void execute_command(char ** args[], int pipe_count){
         
 
     }else{
-        
-        waitpid(pid, &status, 0);
-        dup2(saved_stdin, 0);
+        if(!is_bg_process)
+            waitpid(pid, &status, 0);
+        dup2(saved_stdin, STDIN_FILENO);
     }
 }
 
@@ -137,9 +160,7 @@ int create_sub_process(int in, int out, char ** args){
     return pid;
 }
 
-void execute_pipeline_command(char** args){
 
-}
 
 int execute_excp_command(char ** args){
     if(strcmp(args[0],"cd") == 0){
