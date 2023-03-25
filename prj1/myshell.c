@@ -83,7 +83,7 @@ int parse_bg_command(char ** args){
             if(cur[0] == '&')
                 args[count] = NULL;
             else
-                temp[0] = NULL;
+                temp[0] = 0;
 
             return 1;
         }
@@ -101,6 +101,7 @@ void execute_command(char ** args[], int pipe_count){
     int i  = 0;
     int is_bg_process = 0;
     int saved_stdin = dup(0);
+    int saved_stdout = dup(1);
 
     if(execute_excp_command(args[0])) return;
     for (i = 0 ; i < pipe_count-1 ; ++i){
@@ -114,8 +115,8 @@ void execute_command(char ** args[], int pipe_count){
         dup2 (in, 0);
     }
     is_bg_process = parse_bg_command(args[i]);
-    if(pid = fork() == 0 ){
-    
+    if((pid = fork()) == 0 ){
+        
         close(in);
         
         if (execvp(args[i][0], args[i]) < 0)
@@ -123,13 +124,25 @@ void execute_command(char ** args[], int pipe_count){
             printf("%s: Command not found.\n", args[i][0]);
             exit(0);
         }
+        
+        
         close(0);
+
+        
+        
         
 
     }else{
+        dup2(saved_stdin, STDIN_FILENO);
+        dup2(saved_stdout,STDOUT_FILENO);
+        
+        if(is_bg_process)
+            create_bg_process(pid,args);
         if(!is_bg_process)
             waitpid(pid, &status, 0);
-        dup2(saved_stdin, STDIN_FILENO);
+        // if(is_bg_process) //TODO to change signal
+        //     create_bg_process(pid,args);
+        
     }
 }
 
@@ -160,6 +173,35 @@ int create_sub_process(int in, int out, char ** args){
     return pid;
 }
 
+void create_bg_process(pid_t pid,char ** args[]){
+    Job * new_job = (Job *)malloc(sizeof(Job));
+    
+    new_job->pid = pid;
+    new_job->prev = NULL;
+    new_job->next = NULL;
+    new_job->id = curruent_job_id++;
+
+
+
+    if(first_job == NULL)
+        first_job = new_job;
+    
+
+    if(last_job!= NULL){
+        last_job->next = new_job;
+        new_job->prev = last_job;
+    }
+    last_job = new_job;
+
+    print_bg_process_create(new_job->pid,new_job->id);
+
+}
+
+void print_bg_process_create(pid_t pid, int id){
+    char output[100] = "";
+    sprintf(output,"[%d] %d\n",id,pid);
+    Sio_puts(output);
+}
 
 
 int execute_excp_command(char ** args){
