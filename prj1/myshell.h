@@ -20,7 +20,7 @@ struct JOB{
     int id;
     int status;
     pid_t pid;
-    char *** args;
+    char command[MAX_COMMAND_LENGTH];
 
 };
 Job * first_job;
@@ -28,9 +28,11 @@ Job * last_job;
 int curruent_job_id = 1;
 
 void parse_command(char command[],int * pipe_commands_count, char ** args[]);
-void execute_command(char ** args[], int pipe_count);
+void execute_command(char command[],char ** args[], int pipe_count);
 int execute_excp_command(char ** args);
 int create_sub_process(int in, int out, char ** args);
 int parse_bg_command(char ** args);
-void create_bg_process(pid_t pid,char ** args[]);
+void create_bg_process(pid_t pid,char command[]);
 void print_bg_process_create(pid_t pid, int id);
+void print_bg_process_state(Job * job);
+void remove_char(char * str,const char ch);

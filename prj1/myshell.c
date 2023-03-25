@@ -16,7 +16,7 @@ int main(){
             continue;
         command[strcspn(command, "\n")] = 0; // remove \n 
         parse_command(command,&pipe_count, args);
-        execute_command(args,pipe_count);
+        execute_command(command,args,pipe_count);
  
 
         for(i = 0 ; i < pipe_count; i++)
@@ -93,7 +93,7 @@ int parse_bg_command(char ** args){
     return 0;
 }
 
-void execute_command(char ** args[], int pipe_count){
+void execute_command(char command[],char ** args[], int pipe_count){
     int status;
     pid_t pid;
     int in, fd [2];
@@ -137,7 +137,7 @@ void execute_command(char ** args[], int pipe_count){
         dup2(saved_stdout,STDOUT_FILENO);
         
         if(is_bg_process)
-            create_bg_process(pid,args);
+            create_bg_process(pid,command);
         if(!is_bg_process)
             waitpid(pid, &status, 0);
         // if(is_bg_process) //TODO to change signal
@@ -173,13 +173,15 @@ int create_sub_process(int in, int out, char ** args){
     return pid;
 }
 
-void create_bg_process(pid_t pid,char ** args[]){
+void create_bg_process(pid_t pid,char command[]){
     Job * new_job = (Job *)malloc(sizeof(Job));
     
     new_job->pid = pid;
     new_job->prev = NULL;
     new_job->next = NULL;
     new_job->id = curruent_job_id++;
+    strcpy(new_job->command,command);
+    remove_char(new_job->command,'&');
 
 
 
@@ -198,9 +200,27 @@ void create_bg_process(pid_t pid,char ** args[]){
 }
 
 void print_bg_process_create(pid_t pid, int id){
-    char output[100] = "";
+    char output[MAX_COMMAND_LENGTH] = "";
     sprintf(output,"[%d] %d\n",id,pid);
     Sio_puts(output);
+}
+
+void print_bg_process_state(Job * job){
+    char output[MAX_COMMAND_LENGTH] = "";
+    sprintf(output,"[%d] Stopped\t\t\t %s\n",job->id,job->command);
+    Sio_puts(output);
+}
+
+void remove_char(char * str,const char ch){
+    int len = strlen(str) + 1;
+    for (; *str != '\0'; str++,len--)//종료 문자를 만날 때까지 반복
+    {
+        if (*str == ch)//ch와 같은 문자일 때
+        {
+            strncpy(str, str+1, len);
+            str--;            
+        }
+    }
 }
 
 
@@ -211,6 +231,14 @@ int execute_excp_command(char ** args){
     }
     else if(strcmp(args[0],"exit") == 0){
         exit(1);
+    }
+    else if(strcmp(args[0],"jobs") == 0){
+        Job * job = first_job;
+        while(job != NULL){
+            print_bg_process_state(job);
+            job = job->next;
+        }
+        return 1;
     }
     return 0;
 }
