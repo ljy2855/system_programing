@@ -1,6 +1,6 @@
 CC = gcc
 CFLAGS = -Og
-LDLIBS = -lpthread
+#LDLIBS = -lpthread
 
 myShell : csapp.o myshell.o 
 	gcc -o myShell myshell.o csapp.o -lpthread
