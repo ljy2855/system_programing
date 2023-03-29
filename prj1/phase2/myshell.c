@@ -19,14 +19,13 @@ int main(){
 
         if (!replace_history_command(command))
             continue;
-        //printf("%s\n",command);
+     
         add_command_history(command,1);
         parse_command(command,&pipe_count, args);
         execute_command(args,pipe_count);
 
 
         for(i = 0 ; i < pipe_count; i++)
-            //printf("%s\n",args[i][0]);
             free(args[i]);
 
 
@@ -109,7 +108,7 @@ int replace_history_command(char command[])
                     return 0;
                 }
 
-                // printf("%s",atoi_str);
+               
                 strcpy(temp, command_history[index - 1]);
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
@@ -241,12 +240,7 @@ int create_sub_process(int in, int out, char ** args){
     return pid;
 }
 
-void execute_pipeline_command(char** args){
-
-}
-
-int 
-execute_excp_command(char ** args){
+int execute_excp_command(char ** args){
     int i = 0;
     if(strcmp(args[0],"cd") == 0){
         chdir(args[1]);

@@ -479,6 +479,11 @@ int execute_excp_command(char ** args){
         return 1;
     }
     else if(strcmp(args[0],"exit") == 0){
+        for (; i < history_count; i++)
+        {
+            free(command_history[i]);
+        }
+        free(command_history);
         exit(1);
     }
     

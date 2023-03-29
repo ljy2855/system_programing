@@ -91,8 +91,6 @@ int replace_history_command(char command[])
                     return 0;
                 }
                     
-                
-                // printf("%s",atoi_str);
                 strcpy(temp, command_history[index - 1]);
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
@@ -118,7 +116,7 @@ char** parse_command(char command[]){
         result = realloc(result,SIZE_OF_CHAR_POINTER * (count+1));
         temp = strtok(NULL," ");
         result[count] = temp;
-        // strcpy(result[count],temp);
+
         count++;
 
     }
@@ -140,7 +138,6 @@ void execute_command(char ** args){
             if (fork() == 0)
             {
                 // child process
-                // printf("%s\n",command);
                 if (execvp(args[0], args) < 0)
                 {
                     printf("%s: Command not found.\n", args[0]);
