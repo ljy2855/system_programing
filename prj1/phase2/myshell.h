@@ -13,7 +13,7 @@
 char ** command_history;
 int history_count = 0;
 FILE * fp;
-
+char project_path[200];
 void parse_command(char command[],int * pipe_commands_count, char ** args[]);
 void execute_command(char ** args[], int pipe_count);
 int execute_excp_command(char ** args);

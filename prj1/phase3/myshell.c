@@ -35,9 +35,11 @@ int main(){
 }
 int read_bash_history()
 {
-    fp = fopen(".bash_history", "a");
+    getcwd(project_path, 300);
+    strcat(project_path, "/.bash_history");
+    fp = fopen(project_path, "a");
     fclose(fp);
-    fp = fopen(".bash_history", "r");
+    fp = fopen(project_path, "r");
     char command[MAX_COMMAND_LENGTH] = {
         0,
     };
@@ -66,7 +68,7 @@ void add_command_history(char command[], int write_file)
     if (write_file)
     {
 
-        fp = fopen(".bash_history", "a");
+        fp = fopen(project_path, "a");
 
         fprintf(fp, "\n%s", command);
         fclose(fp);
