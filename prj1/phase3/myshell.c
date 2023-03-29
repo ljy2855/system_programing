@@ -8,6 +8,7 @@ int main(){
     saved_stdin = dup(0);
     saved_stdout = dup(1);
     root_pid = getpid();
+    read_bash_history();
 
     do
     {
@@ -19,6 +20,8 @@ int main(){
         if(command[0] == '\n') // if enter, pass loop
             continue;
         command[strcspn(command, "\n")] = 0; // remove \n
+        replace_history_command(command);
+        add_command_history(command, 1);
         strcpy(current_command, command);
         parse_command(command, &pipe_count, args);
         execute_command(command,args,pipe_count);
@@ -28,6 +31,78 @@ int main(){
             //printf("%s\n",args[i][0]);
             free(args[i]);
     } while (1);
+}
+int read_bash_history()
+{
+    fp = fopen(".bash_history", "a");
+    fclose(fp);
+    fp = fopen(".bash_history", "r");
+    char command[MAX_COMMAND_LENGTH] = {
+        0,
+    };
+    char *temp;
+
+    while (!feof(fp))
+    {
+        fgets(command, MAX_COMMAND_LENGTH, fp);
+        if (command[0] == '\n' || command[0] == 0)
+            continue;
+        command[strcspn(command, "\n")] = 0;
+        add_command_history(command, 0);
+    }
+    fclose(fp);
+}
+void add_command_history(char command[], int write_file)
+{
+    if (history_count)
+        if (!strcmp(command, command_history[history_count - 1]))
+            return;
+
+    history_count++;
+    command_history = (char **)realloc(command_history, sizeof(char *) * history_count);
+    command_history[history_count - 1] = (char *)malloc(sizeof(char) * MAX_COMMAND_LENGTH);
+    strcpy(command_history[history_count - 1], command);
+    if (write_file)
+    {
+
+        fp = fopen(".bash_history", "a");
+
+        fprintf(fp, "\n%s", command);
+        fclose(fp);
+    }
+}
+void replace_history_command(char command[])
+{
+    int cur;
+    int index;
+    int len;
+    char temp[MAX_COMMAND_LENGTH];
+    char atoi_str[100];
+    len = strlen(command);
+    for (cur = 0; cur < len - 1; cur++)
+    {
+        if (command[cur] == '!')
+        {
+            if (command[cur + 1] == '!')
+            {
+                strcpy(temp, command_history[history_count - 1]);
+                len += strlen(temp) - 2;
+                if (strlen(command + cur + 2))
+                    strcat(temp, command + cur + 2);
+                strcpy(command + cur, temp);
+            }
+            else if (atoi(command + cur + 1))
+            {
+                index = atoi(command + cur + 1);
+                sprintf(atoi_str, "%d", index);
+                // printf("%s",atoi_str);
+                strcpy(temp, command_history[index - 1]);
+                len += strlen(temp) - strlen(atoi_str) + 1;
+                strcat(temp, command + cur + strlen(atoi_str) + 1);
+                strcpy(command + cur, temp);
+            }
+        }
+    }
 }
 
 void parse_command(char command[],int * pipe_commands_count, char ** args[]){
@@ -77,6 +152,102 @@ void parse_command(char command[],int * pipe_commands_count, char ** args[]){
 
 }
 
+int process_background_command(char ** args){
+    if (strcmp(args[0], "jobs") == 0)
+    {
+        Job *job = first_job;
+        while (job != NULL)
+        {
+            if (job->status == process_running)
+                print_bg_process_state(job, process_running);
+            else
+                print_bg_process_state(job, process_stop);
+            job = job->next;
+        }
+        return 1;
+    }
+    else if (strcmp(args[0], "kill") == 0)
+    {
+        Job *job = first_job;
+        if (args[1] == NULL)
+        {
+            Sio_puts("kill: usage: kill <job>\n");
+            return 1;
+        }
+
+        while (job != NULL)
+        {
+            if (job->id == atoi(args[1]))
+            {
+                Kill(job->pid, SIGKILL);
+                return 1;
+            }
+
+            job = job->next;
+        }
+        Sio_puts("kill: no such job\n");
+        return 1;
+    }
+    else if (strcmp(args[0], "fg") == 0)
+    {
+        Job *job = first_job;
+        int status;
+        if (args[1] == NULL)
+        {
+            Sio_puts("fg: usage: fg <job>\n");
+            return 1;
+        }
+        while (job != NULL)
+        {
+            if (job->id == atoi(args[1]))
+            {
+                Signal(SIGCONT, resume_process_handler);
+                Signal(SIGTSTP, suspend_process_handler);
+                Sio_puts(job->command);
+                Sio_puts("\n");
+                Kill(job->pid, SIGCONT);
+                waitpid(job->pid, &status, WUNTRACED);
+                if (WIFEXITED(status))
+                    remove_job_node(job);
+                return 1;
+            }
+
+            job = job->next;
+        }
+        Sio_puts("fg: no such job\n");
+        return 1;
+    }
+    else if (strcmp(args[0], "bg") == 0)
+    {
+        Job *job = first_job;
+        int status;
+        if (args[1] == NULL)
+        {
+            Sio_puts("bg: usage: bg <job>\n");
+            return 1;
+        }
+        while (job != NULL)
+        {
+            if (job->id == atoi(args[1]))
+            {
+                Signal(SIGCHLD, terminate_process_handler);
+                current_pid = job->pid;
+                Sio_puts(job->command);
+                Sio_puts("\n");
+                job->status = process_running;
+                Kill(job->pid, SIGCONT);
+
+                return 1;
+            }
+
+            job = job->next;
+        }
+        Sio_puts("bg: no such job\n");
+        return 1;
+    }
+    return 0;
+}
+
 int parse_bg_command(char ** args){
 
     char * cur, *temp;
@@ -105,12 +276,15 @@ void execute_command(char command[],char ** args[], int pipe_count){
     in = STDIN_FILENO;
     int i  = 0;
     int is_bg_process = 0;
+    if(process_background_command(args[0]))
+        return;
 
-    signal(SIGTSTP, suspend_process_handler);
+    Signal(SIGTSTP, suspend_process_handler);
 
-    if(execute_excp_command(args[0])) return;
+
     for (i = 0 ; i < pipe_count-1 ; ++i){
         pipe(fd);
+      
         create_sub_process(in,fd[1],args[i]);
         close(fd[1]);
         in = fd[0];
@@ -120,14 +294,16 @@ void execute_command(char command[],char ** args[], int pipe_count){
         dup2 (in, 0);
     }
     is_bg_process = parse_bg_command(args[i]);
+
     if((pid = fork()) == 0 ){
 
-        
-        if (execvp(args[i][0], args[i]) < 0)
-        {
-            printf("%s: Command not found.\n", args[i][0]);
-            exit(0);
-        }
+            if (!execute_excp_command(args[i])){
+                if (execvp(args[i][0], args[i]) < 0)
+                {
+                    printf("%s: Command not found.\n", args[i][0]);
+                    exit(1);
+                }
+            }
         
         
         close(0);
@@ -144,12 +320,12 @@ void execute_command(char command[],char ** args[], int pipe_count){
 
         if(is_bg_process){
             create_bg_process(pid, command,0);
-            signal(SIGCHLD, (void *)terminate_process_handler);
+            Signal(SIGCHLD, (void *)terminate_process_handler);
             
         }
             
         if(!is_bg_process){
-            signal(SIGCHLD, (void *)terminate_process_handler);
+            Signal(SIGCHLD, (void *)terminate_process_handler);
             waitpid(pid, &status, WUNTRACED);
         }
    
@@ -173,7 +349,14 @@ int create_sub_process(int in, int out, char ** args){
             close (out);
         }
 
-       execvp (args[0], args);
+        if (!execute_excp_command(args))
+        {
+            if (execvp(args[0], args) < 0)
+            {
+                printf("%s: Command not found.\n", args[0]);
+                exit(1);
+            }
+        }
 
        exit(0);
     }
@@ -272,97 +455,27 @@ void remove_char(char * str,const char ch){
 
 
 int execute_excp_command(char ** args){
-    if(strcmp(args[0],"cd") == 0){
+    int i = 0;
+    if (strcmp(args[0], "cd") == 0)
+    {
         chdir(args[1]);
         return 1;
     }
     else if(strcmp(args[0],"exit") == 0){
         exit(1);
     }
-    else if(strcmp(args[0],"jobs") == 0){
-        Job * job = first_job;
-        while (job != NULL)
-        {
-            if(job->status == process_running)
-                print_bg_process_state(job, process_running);
-            else
-                print_bg_process_state(job,process_stop);
-            job = job->next;
-        }
-        return 1;
-    }
-    else if (strcmp(args[0], "kill") == 0){
-        Job *job = first_job;
-        if( args[1] == NULL){
-            Sio_puts("kill: usage: kill <job>\n");
-            return 1;
-        }
-            
-        
-        while (job != NULL)
-        {
-            if(job->id == atoi(args[1])){
-                Kill(job->pid, SIGKILL);
-                return 1;
-            }
-
-            job = job->next;
-        }
-        Sio_puts("kill: no such job\n");
-        return 1;
-    }
-    else if (strcmp(args[0],"fg") == 0){
-        Job *job = first_job;
-        int status;
-        if (args[1] == NULL){
-            Sio_puts("fg: usage: fg <job>\n");
-            return 1;
-        }
-        while (job != NULL)
-        {
-            if(job->id == atoi(args[1])){
-                Signal(SIGCONT,resume_process_handler);
-                Signal(SIGTSTP,suspend_process_handler);
-                Sio_puts(job->command);
-                Sio_puts("\n");
-                Kill(job->pid,SIGCONT);
-                waitpid(job->pid, &status, WUNTRACED);
-                if (WIFEXITED(status))
-                    remove_job_node(job);
-                return 1;
-            }
-
-            job = job->next;
-        }
-        Sio_puts("fg: no such job\n");
-        return 1;
     
-    }else if (strcmp(args[0],"bg") == 0){
-        Job *job = first_job;
-        int status;
-        if (args[1] == NULL){
-            Sio_puts("bg: usage: bg <job>\n");
-            return 1;
-        }
-        while (job != NULL)
-        {
-            if(job->id == atoi(args[1])){
-                Signal(SIGCHLD,terminate_process_handler);
-                current_pid = job->pid;
-                Sio_puts(job->command);
-                Sio_puts("\n");
-                job->status = process_running;
-                Kill(job->pid,SIGCONT);
-                
-                return 1;
-            }
+    else if (strcmp(args[0], "history") == 0)
+    {
 
-            job = job->next;
+        for (; i < history_count; i++)
+        {
+            printf("%d\t%s\n", i + 1, command_history[i]);
         }
-        Sio_puts("bg: no such job\n");
+
         return 1;
     }
-    
+
         return 0;
 }
 
@@ -440,6 +553,51 @@ void resume_process_handler(int sig){
     kill(current_pid,SIGCONT);
 }
 
-void stop_process_handler(int sig){
-    pause();
+void Kill(pid_t pid, int signum)
+{
+    int rc;
+
+    if ((rc = kill(pid, signum)) < 0)
+        unix_error("Kill error");
+}
+
+ssize_t Sio_puts(char s[])
+{
+    ssize_t n;
+
+    if ((n = sio_puts(s)) < 0)
+        sio_error("Sio_puts error");
+    return n;
+}
+
+void unix_error(char *msg) /* Unix-style error */
+{
+    fprintf(stderr, "%s: %s\n", msg, strerror(errno));
+    exit(0);
+}
+/* $end unixerror */
+
+void sio_error(char s[]) /* Put error message and exit */
+{
+    sio_puts(s);
+    _exit(1); // line:csapp:sioexit
+}
+/* $end siopublic */
+
+ssize_t sio_puts(char s[]) /* Put string */
+{
+    return write(STDOUT_FILENO, s, strlen(s)); // line:csapp:siostrlen
+}
+
+handler_t *Signal(int signum, handler_t *handler)
+{
+    struct sigaction action, old_action;
+
+    action.sa_handler = handler;
+    sigemptyset(&action.sa_mask); /* Block sigs of type being handled */
+    action.sa_flags = SA_RESTART; /* Restart syscalls if possible */
+
+    if (sigaction(signum, &action, &old_action) < 0)
+        unix_error("Signal error");
+    return (old_action.sa_handler);
 }
