@@ -20,21 +20,26 @@ int main(){
     } while (1);
 }
 int read_bash_history(){
+    fp = fopen(".bash_history", "a");
+    fclose(fp);
     fp = fopen(".bash_history", "r");
     char command[MAX_COMMAND_LENGTH] = {0,};
     char *temp;
 
     while(!feof(fp)){
         fgets(command, MAX_COMMAND_LENGTH, fp);
-        if (command[0] == '\n')
+        if (command[0] == '\n' || command[0] == 0)
             continue;
         command[strcspn(command, "\n")] = 0;
         add_command_history(command, 0);
-        //printf("%s", command_history[history_count - 1]);
+
     }
     fclose(fp);
 }
 void add_command_history(char command[],int write_file){
+    if(history_count)
+        if(!strcmp(command,command_history[history_count-1])) return;
+        
     history_count++;
     command_history = (char **)realloc(command_history, sizeof(char *) * history_count);
     command_history[history_count - 1] = (char *)malloc(sizeof(char) * MAX_COMMAND_LENGTH);
@@ -48,15 +53,17 @@ void add_command_history(char command[],int write_file){
     }
 }
 
-int check_history(char command[]){
+int 
+check_history(char command[]){
     int i =0;
     int target = 0;
     if(strcmp(command,"history") == 0){
+        add_command_history(command, 1);
         for(;i<history_count;i++){
             printf("%d\t%s\n",i+1,command_history[i]);
         }
 
-        add_command_history(command, 1);
+        
         return 1;
     }else if(command[0] == '!'){
         if(command[1] == '!'){

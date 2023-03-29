@@ -8,7 +8,6 @@
 #define MAX_ARGS 100
 #define MAX_COMMAND_LENGTH 200
 #define SIZE_OF_CHAR_POINTER sizeof(char*)
-#define MAX_HISTORY_COUNT 100
 char ** command_history;
 int history_count = 0;
 FILE * fp;
