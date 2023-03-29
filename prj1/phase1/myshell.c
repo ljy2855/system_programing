@@ -3,6 +3,8 @@
 int main(){
     char command[MAX_COMMAND_LENGTH];
     char ** args;
+    
+    
     read_bash_history();
     do
     {
@@ -11,18 +13,21 @@ int main(){
         if(command[0] == '\n')
             continue;
         command[strcspn(command, "\n")] = 0;
-        if(!check_history(command)){
-            args = parse_command(command);
-            execute_command(args);
-            free(args);
-        }
+        if(!replace_history_command(command)) continue;
+        add_command_history(command, 1);
+        args = parse_command(command);
+        execute_command(args);
+        free(args);
+       
 
     } while (1);
 }
 int read_bash_history(){
-    fp = fopen(".bash_history", "a");
+    getcwd(project_path, 300);
+    strcat(project_path, "/.bash_history");
+    fp = fopen(project_path, "a");
     fclose(fp);
-    fp = fopen(".bash_history", "r");
+    fp = fopen(project_path, "r");
     char command[MAX_COMMAND_LENGTH] = {0,};
     char *temp;
 
@@ -46,49 +51,58 @@ void add_command_history(char command[],int write_file){
     strcpy(command_history[history_count - 1], command);
     if(write_file){
         
-        fp = fopen(".bash_history", "a");
+        fp = fopen(project_path, "a");
        
         fprintf(fp, "\n%s", command);
         fclose(fp);
     }
 }
-
-int 
-check_history(char command[]){
-    int i =0;
-    int target = 0;
-    if(strcmp(command,"history") == 0){
-        add_command_history(command, 1);
-        for(;i<history_count;i++){
-            printf("%d\t%s\n",i+1,command_history[i]);
-        }
-
-        
-        return 1;
-    }else if(command[0] == '!'){
-        if(command[1] == '!'){
-            printf("%s\n",command_history[history_count-1]);
-            target = history_count - 1;
-        }else if(atoi(command+1) != 0){
-            if(atoi(command+1) <= history_count){
-                target = atoi(command+1) -1;
-                printf("%s\n",command_history[target]);
-                add_command_history(command_history[target], 1);
-            }
-
-            else
+int replace_history_command(char command[])
+{
+    int cur;
+    int index;
+    int len;
+    char temp[MAX_COMMAND_LENGTH];
+    char atoi_str[100];
+    len = strlen(command);
+    for (cur = 0; cur < len - 1; cur++)
+    {
+        if (command[cur] == '!')
+        {
+            if (command[cur + 1] == '!')
             {
-                printf("out of index history\n");
-                return 1;
+                if(history_count == 0){
+                    printf("-bash: !!: event not found\n");
+                    return 0;
+                }
+                    
+                strcpy(temp, command_history[history_count - 1]);
+                len += strlen(temp) - 2;
+                if (strlen(command + cur + 2))
+                    strcat(temp, command + cur + 2);
+                strcpy(command + cur, temp);
             }
-            
+            else if (atoi(command + cur + 1))
+            {
+                index = atoi(command + cur + 1);
+                sprintf(atoi_str, "%d", index);
+                if(index > history_count){
+                    printf("-bash: !%s: event not found\n",atoi_str);
+                    return 0;
+                }
+                    
+                
+                // printf("%s",atoi_str);
+                strcpy(temp, command_history[index - 1]);
+                len += strlen(temp) - strlen(atoi_str) + 1;
+                strcat(temp, command + cur + strlen(atoi_str) + 1);
+                strcpy(command + cur, temp);
+            }
         }
-        strcpy(command,command_history[target]);
-        return 0;
     }
-    add_command_history(command, 1);
-    return 0;
+    return 1;
 }
+
 
 char** parse_command(char command[]){
     char** result;
@@ -163,12 +177,13 @@ int execute_excp_command(char **args)
     }
     else if (strcmp(args[0], "history") == 0)
     {
-        for (; i < history_count-1; i++)
-        {
+
+            for (; i < history_count; i++)
+            {
                 printf("%d\t%s\n", i + 1, command_history[i]);
-        }
-        //strcpy(command_history[history_count++], command);
-        return 1;
+            }
+
+            return 1;
     }
 
     return 0;

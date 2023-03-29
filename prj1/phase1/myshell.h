@@ -11,10 +11,11 @@
 char ** command_history;
 int history_count = 0;
 FILE * fp;
-
-char** parse_command(char command[]);
+char project_path[200];
+char **parse_command(char command[]);
 void execute_command(char ** args);
 int check_history(char command[]);
 int execute_excp_command(char **args);
 int read_bash_history();
 void add_command_history(char command[], int write_file);
+int replace_history_command(char command[]);

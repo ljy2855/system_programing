@@ -56,7 +56,7 @@ void suspend_process_handler(int sig);
 void resume_process_handler(int sig);
 int read_bash_history();
 void add_command_history(char command[], int write_file);
-void replace_history_command(char command[]);
+int replace_history_command(char command[]);
 
 void Kill(pid_t pid, int signum);
 ssize_t Sio_puts(char s[]);

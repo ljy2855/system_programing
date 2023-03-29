@@ -14,13 +14,14 @@ int main(){
     {
         
         pipe_count = 0;
-        printf("CSE4100:P1-myshell>");
+        printf("CSE4100-MP-P1>");
         fgets(command, MAX_COMMAND_LENGTH, stdin);
 
         if(command[0] == '\n') // if enter, pass loop
             continue;
         command[strcspn(command, "\n")] = 0; // remove \n
-        replace_history_command(command);
+        if (!replace_history_command(command))
+            continue;
         add_command_history(command, 1);
         strcpy(current_command, command);
         parse_command(command, &pipe_count, args);
@@ -71,7 +72,7 @@ void add_command_history(char command[], int write_file)
         fclose(fp);
     }
 }
-void replace_history_command(char command[])
+int replace_history_command(char command[])
 {
     int cur;
     int index;
@@ -85,6 +86,12 @@ void replace_history_command(char command[])
         {
             if (command[cur + 1] == '!')
             {
+                if (history_count == 0)
+                {
+                    printf("-bash: !!: event not found\n");
+                    return 0;
+                }
+
                 strcpy(temp, command_history[history_count - 1]);
                 len += strlen(temp) - 2;
                 if (strlen(command + cur + 2))
@@ -95,6 +102,12 @@ void replace_history_command(char command[])
             {
                 index = atoi(command + cur + 1);
                 sprintf(atoi_str, "%d", index);
+                if (index > history_count)
+                {
+                    printf("-bash: !%s: event not found\n", atoi_str);
+                    return 0;
+                }
+
                 // printf("%s",atoi_str);
                 strcpy(temp, command_history[index - 1]);
                 len += strlen(temp) - strlen(atoi_str) + 1;
@@ -103,6 +116,7 @@ void replace_history_command(char command[])
             }
         }
     }
+    return 1;
 }
 
 void parse_command(char command[],int * pipe_commands_count, char ** args[]){
@@ -294,21 +308,23 @@ void execute_command(char command[],char ** args[], int pipe_count){
         dup2 (in, 0);
     }
     is_bg_process = parse_bg_command(args[i]);
+    if (execute_excp_command(args[i]))
+        return;
 
-    if((pid = fork()) == 0 ){
+    if ((pid = fork()) == 0)
+    {
 
-            if (!execute_excp_command(args[i])){
-                if (execvp(args[i][0], args[i]) < 0)
-                {
-                    printf("%s: Command not found.\n", args[i][0]);
-                    exit(1);
-                }
-            }
-        
+        if (execvp(args[i][0], args[i]) < 0)
+        {
+            printf("%s: Command not found.\n", args[i][0]);
+            exit(1);
+        }
         
         close(0);
         exit(1);
-    }else{
+    }
+    else
+    {
         //setpgid(pid,0);
         current_pid = pid;
         
@@ -328,7 +344,6 @@ void execute_command(char command[],char ** args[], int pipe_count){
             Signal(SIGCHLD, (void *)terminate_process_handler);
             waitpid(pid, &status, WUNTRACED);
         }
-   
     }
 }
 

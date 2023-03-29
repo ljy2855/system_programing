@@ -15,9 +15,10 @@ int main(){
 
         if(command[0] == '\n') // if enter, pass loop
             continue;
-        command[strcspn(command, "\n")] = 0; // remove \n 
-       
-        replace_history_command(command);
+        command[strcspn(command, "\n")] = 0; // remove \n
+
+        if (!replace_history_command(command))
+            continue;
         //printf("%s\n",command);
         add_command_history(command,1);
         parse_command(command,&pipe_count, args);
@@ -31,14 +32,18 @@ int main(){
 
     } while (1);
 }
-int read_bash_history(){
+int read_bash_history()
+{
     fp = fopen(".bash_history", "a");
     fclose(fp);
     fp = fopen(".bash_history", "r");
-    char command[MAX_COMMAND_LENGTH] = {0,};
+    char command[MAX_COMMAND_LENGTH] = {
+        0,
+    };
     char *temp;
 
-    while(!feof(fp)){
+    while (!feof(fp))
+    {
         fgets(command, MAX_COMMAND_LENGTH, fp);
         if (command[0] == '\n' || command[0] == 0)
             continue;
@@ -47,53 +52,71 @@ int read_bash_history(){
     }
     fclose(fp);
 }
-void add_command_history(char command[],int write_file){
-    if(history_count)
-        if(!strcmp(command,command_history[history_count-1])) return;
-        
+void add_command_history(char command[], int write_file)
+{
+    if (history_count)
+        if (!strcmp(command, command_history[history_count - 1]))
+            return;
+
     history_count++;
     command_history = (char **)realloc(command_history, sizeof(char *) * history_count);
     command_history[history_count - 1] = (char *)malloc(sizeof(char) * MAX_COMMAND_LENGTH);
     strcpy(command_history[history_count - 1], command);
-    if(write_file){
-        
+    if (write_file)
+    {
+
         fp = fopen(".bash_history", "a");
-       
+
         fprintf(fp, "\n%s", command);
         fclose(fp);
     }
 }
-void replace_history_command(char command[]){
+int replace_history_command(char command[])
+{
     int cur;
     int index;
     int len;
     char temp[MAX_COMMAND_LENGTH];
     char atoi_str[100];
     len = strlen(command);
-    for(cur = 0 ;cur < len -1 ; cur++){
-        if(command[cur] == '!'){
-            if(command[cur+1] == '!'){
-                strcpy(temp,command_history[history_count-1]);
-                len += strlen(temp) -2;
-                if(strlen(command+cur+2))
-                    strcat(temp,command+cur+2);
-                strcpy(command+cur,temp);
-                
+    for (cur = 0; cur < len - 1; cur++)
+    {
+        if (command[cur] == '!')
+        {
+            if (command[cur + 1] == '!')
+            {
+                if (history_count == 0)
+                {
+                    printf("-bash: !!: event not found\n");
+                    return 0;
+                }
 
-            }else if(atoi(command+cur+1)){
-                index = atoi(command+cur+1);
-                sprintf(atoi_str,"%d",index);
-                //printf("%s",atoi_str);
-                strcpy(temp, command_history[index-1]);
-                len += strlen(temp) -strlen(atoi_str) + 1;
-                strcat(temp,command+cur+strlen(atoi_str) +1);
-                strcpy(command+cur,temp);
+                strcpy(temp, command_history[history_count - 1]);
+                len += strlen(temp) - 2;
+                if (strlen(command + cur + 2))
+                    strcat(temp, command + cur + 2);
+                strcpy(command + cur, temp);
+            }
+            else if (atoi(command + cur + 1))
+            {
+                index = atoi(command + cur + 1);
+                sprintf(atoi_str, "%d", index);
+                if (index > history_count)
+                {
+                    printf("-bash: !%s: event not found\n", atoi_str);
+                    return 0;
+                }
+
+                // printf("%s",atoi_str);
+                strcpy(temp, command_history[index - 1]);
+                len += strlen(temp) - strlen(atoi_str) + 1;
+                strcat(temp, command + cur + strlen(atoi_str) + 1);
+                strcpy(command + cur, temp);
             }
         }
     }
+    return 1;
 }
-
-
 void parse_command(char command[],int * pipe_commands_count, char ** args[]){
 
     char * temp;
@@ -201,8 +224,11 @@ int create_sub_process(int in, int out, char ** args){
             close (out);
         }
         if(!execute_excp_command(args)){
-            execvp (args[0], args);
-        }
+            if(execvp (args[0], args)<0){
+                printf("%s: Command not found.\n", args[0]);
+                exit(1);
+            }
+                }
             
 
        exit(0);

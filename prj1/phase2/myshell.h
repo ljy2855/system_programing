@@ -20,5 +20,4 @@ int execute_excp_command(char ** args);
 int create_sub_process(int in, int out, char ** args);
 int read_bash_history();
 void add_command_history(char command[], int write_file);
-int check_history(char command[]);
-void replace_history_command(char command[]);
+int replace_history_command(char command[]);
