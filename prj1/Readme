@@ -1,9 +1,10 @@
 TODO
-#공통
+# 공통
 * Add comment
 * exit wait all process stop
 #Phase1
 * 
 
-#Phase3
+# Phase3
 * control c 구현
+* bg print command line

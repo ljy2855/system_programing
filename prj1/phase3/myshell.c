@@ -9,9 +9,18 @@ int main(){
     saved_stdout = dup(1);
     root_pid = getpid();
     read_bash_history();
+    Signal(SIGINT, terminate_current_process_handler);
+    Signal(SIGTSTP, suspend_process_handler);
+    sigset_t mask,prev;
+
+    
+    
 
     do
     {
+        sigemptyset(&mask);
+        sigaddset(&mask,SIGTSTP);
+        sigprocmask(SIG_BLOCK,&mask,&prev);
         
         pipe_count = 0;
         printf("CSE4100-MP-P1>");
@@ -25,6 +34,8 @@ int main(){
         add_command_history(command, 1);
         strcpy(current_command, command);
         parse_command(command, &pipe_count, args);
+        
+        sigprocmask(SIG_UNBLOCK,&mask,NULL);
         execute_command(command,args,pipe_count);
  
 
@@ -195,7 +206,7 @@ int process_background_command(char ** args){
         {
             if (job->id == atoi(args[1]))
             {
-                Kill(job->pid, SIGKILL);
+                kill(job->pid, SIGKILL);
                 return 1;
             }
 
@@ -219,9 +230,10 @@ int process_background_command(char ** args){
             {
                 Signal(SIGCONT, resume_process_handler);
                 Signal(SIGTSTP, suspend_process_handler);
+                Signal(SIGCHLD, terminate_process_handler);
                 Sio_puts(job->command);
                 Sio_puts("\n");
-                Kill(job->pid, SIGCONT);
+                kill(job->pid, SIGCONT);
                 waitpid(job->pid, &status, WUNTRACED);
                 if (WIFEXITED(status))
                     remove_job_node(job);
@@ -251,7 +263,7 @@ int process_background_command(char ** args){
                 Sio_puts(job->command);
                 Sio_puts("\n");
                 job->status = process_running;
-                Kill(job->pid, SIGCONT);
+                kill(job->pid, SIGCONT);
 
                 return 1;
             }
@@ -295,7 +307,8 @@ void execute_command(char command[],char ** args[], int pipe_count){
     if(process_background_command(args[0]))
         return;
 
-    Signal(SIGTSTP, suspend_process_handler);
+    
+    
 
 
     for (i = 0 ; i < pipe_count-1 ; ++i){
@@ -309,6 +322,7 @@ void execute_command(char command[],char ** args[], int pipe_count){
     if (in != STDIN_FILENO){
         dup2 (in, 0);
     }
+    
     is_bg_process = parse_bg_command(args[i]);
     if (execute_excp_command(args[i]))
         return;
@@ -484,7 +498,7 @@ int execute_excp_command(char ** args){
             free(command_history[i]);
         }
         free(command_history);
-        exit(1);
+        exit(0);
     }
     
     else if (strcmp(args[0], "history") == 0)
@@ -547,13 +561,14 @@ void terminate_process_handler(int sig){
 }
 
 void suspend_process_handler(int sig){
-    close(0);
+    //close(0);
     dup2(saved_stdin, STDIN_FILENO);
     dup2(saved_stdout, STDOUT_FILENO);
-    //Kill(current_pid, SIGTSTP);
-    //Kill(root_pid, SIGCONT);
-    //Kill(current_pid, SIGCONT);
-    
+
+    if(current_pid == 0){
+        return;
+    }
+        
     Job *job = first_job;
     while (job != NULL)
     {
@@ -571,8 +586,31 @@ void suspend_process_handler(int sig){
 }
 void resume_process_handler(int sig){
     pid_t pgid = __getpgid(current_pid);
-    Kill(pgid,SIGCONT);
+    kill(pgid,SIGCONT);
     kill(current_pid,SIGCONT);
+}
+
+void terminate_current_process_handler(int sig){
+    pid_t pid = current_pid;
+    Job * job;
+    job = first_job;
+    if(pid != 0){
+        
+        kill(pid,SIGKILL);
+        while (job != NULL)
+        {
+            if (job->pid == pid)
+            {
+                remove_job_node(job);
+             
+            }
+
+            job = job->next;
+        }
+        
+    }
+
+        
 }
 
 void Kill(pid_t pid, int signum)
@@ -580,7 +618,7 @@ void Kill(pid_t pid, int signum)
     int rc;
 
     if ((rc = kill(pid, signum)) < 0)
-        unix_error("Kill error");
+        unix_error("kill error");
 }
 
 ssize_t Sio_puts(char s[])

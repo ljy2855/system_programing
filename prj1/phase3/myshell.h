@@ -30,7 +30,7 @@ struct JOB{
 };
 Job * first_job;
 Job * last_job;
-pid_t current_pid;
+volatile pid_t current_pid;
 pid_t root_pid;
 char current_command[MAX_COMMAND_LENGTH];
 int curruent_job_id = 1;
@@ -55,6 +55,7 @@ void remove_job_node(Job *job);
 void terminate_process_handler(int sig);
 void suspend_process_handler(int sig);
 void resume_process_handler(int sig);
+void terminate_current_process_handler(int sig);
 int read_bash_history();
 void add_command_history(char command[], int write_file);
 int replace_history_command(char command[]);
