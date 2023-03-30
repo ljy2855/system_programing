@@ -1,8 +1,8 @@
 TODO
-
+#공통
+* Add comment
+* exit wait all process stop
 #Phase1
-* bash_history 파일 입출력 구현
-* history linked list 구현
 * 
 
 #Phase3

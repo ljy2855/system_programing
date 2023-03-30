@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 
 #define MAX_ARGS 100
-#define MAX_COMMAND_LENGTH 200
+#define MAX_COMMAND_LENGTH 1024
 #define SIZE_OF_CHAR_POINTER sizeof(char*)
 char ** command_history;
 int history_count = 0;

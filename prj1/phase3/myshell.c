@@ -420,8 +420,8 @@ void print_bg_process_create(pid_t pid, int id){
 }
 
 void print_bg_process_state(Job * job,int status){
-    char output[MAX_COMMAND_LENGTH] = "";
-    char state[10];
+    char output[MAX_COMMAND_LENGTH * 2] = "";
+    char state[20];
     switch (status)
     {
     case process_done:
