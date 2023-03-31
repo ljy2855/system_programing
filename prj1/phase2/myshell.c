@@ -102,7 +102,7 @@ int replace_history_command(char command[])
             {
                 index = atoi(command + cur + 1);
                 sprintf(atoi_str, "%d", index);
-                if (index > history_count)
+                if (index > history_count || index < 0)
                 {
                     printf("-bash: !%s: event not found\n", atoi_str);
                     return 0;
@@ -113,6 +113,9 @@ int replace_history_command(char command[])
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
                 strcpy(command + cur, temp);
+            }else if (command[cur+1] == '0'){
+                printf("-bash: !0: event not found\n");
+                return 0;
             }
         }
     }
