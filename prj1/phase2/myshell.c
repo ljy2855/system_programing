@@ -19,9 +19,10 @@ int main(){
 
         if (!replace_history_command(command))
             continue;
-     
-        add_command_history(command,1);
         parse_command(command,&pipe_count, args);
+        if(*args[0] == NULL) continue;
+        add_command_history(command,1);
+        
         execute_command(args,pipe_count);
 
 

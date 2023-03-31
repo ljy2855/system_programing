@@ -14,8 +14,10 @@ int main(){
             continue;
         command[strcspn(command, "\n")] = 0;
         if(!replace_history_command(command)) continue;
-        add_command_history(command, 1);
         args = parse_command(command);
+        if (*args == NULL)
+            continue;
+        add_command_history(command, 1);
         execute_command(args);
         free(args);
        

@@ -31,9 +31,11 @@ int main(){
         command[strcspn(command, "\n")] = 0; // remove \n
         if (!replace_history_command(command))
             continue;
-        add_command_history(command, 1);
+   
         strcpy(current_command, command);
-        parse_command(command, &pipe_count, args);
+        parse_command(command,&pipe_count, args);
+        if(*args[0] == NULL) continue;
+        add_command_history(command,1);
         
         sigprocmask(SIG_UNBLOCK,&mask,NULL);
         execute_command(command,args,pipe_count);
