@@ -96,6 +96,7 @@ int replace_history_command(char command[])
     int len;
     char temp[MAX_COMMAND_LENGTH];
     char atoi_str[100];
+    int flag = 0;
     len = strlen(command);
     for (cur = 0; cur < len - 1; cur++)
     {
@@ -114,6 +115,7 @@ int replace_history_command(char command[])
                 if (strlen(command + cur + 2))
                     strcat(temp, command + cur + 2);
                 strcpy(command + cur, temp);
+                flag =1;
             }
             else if (atoi(command + cur + 1))
             {
@@ -130,12 +132,15 @@ int replace_history_command(char command[])
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
                 strcpy(command + cur, temp);
+                flag =1;
             }else if (command[cur+1] == '0'){
                 printf("-bash: !0: event not found\n");
                 return 0;
             }
         }
     }
+    if(flag)
+        printf("%s\n",command);
     return 1;
 }
 
@@ -245,7 +250,10 @@ int process_background_command(char ** args){
                 // Signal(SIGTSTP, suspend_process_handler);
                 // Signal(SIGCHLD, terminate_process_handler);
                 
-                
+                job->prev = last_job;
+                last_job = job;
+
+
                 Sio_puts(job->command);
                 Sio_puts("\n");
                 current_pid = job->pid;
@@ -285,7 +293,10 @@ int process_background_command(char ** args){
         {
             if (job->id == atoi(args[1]))
             {
-                sprintf(output,"[%d] %s &\n",job->id,job->command);
+                job->prev = last_job;
+                last_job = job;
+                strcat(job->command," &");
+                sprintf(output,"[%d] %s\n",job->id,job->command);
                 // Signal(SIGCHLD, terminate_process_handler);
                 // Signal(SIGTSTP, suspend_process_handler);
                 current_pid = job->pid;
@@ -575,6 +586,7 @@ void terminate_process_handler(int sig){
   
                 
                 if(WIFEXITED(status)){
+                    Sio_puts("\n");
                     print_bg_process_state(cur, process_done);
                     remove_job_node(cur);
                 }
@@ -619,6 +631,7 @@ void suspend_process_handler(int sig){
     {
         if(job->pid == current_pid){
             job->status = process_stop;
+            remove_char(job->command,'&');
             kill(current_pid,SIGSTOP);
             return;
         }

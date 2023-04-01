@@ -67,6 +67,7 @@ int replace_history_command(char command[])
     char temp[MAX_COMMAND_LENGTH];
     char atoi_str[100];
     len = strlen(command);
+    int flag = 0;
     for (cur = 0; cur < len - 1; cur++)
     {
         if (command[cur] == '!')
@@ -83,6 +84,7 @@ int replace_history_command(char command[])
                 if (strlen(command + cur + 2))
                     strcat(temp, command + cur + 2);
                 strcpy(command + cur, temp);
+                flag = 1;
             }
             else if (atoi(command + cur + 1))
             {
@@ -97,12 +99,15 @@ int replace_history_command(char command[])
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
                 strcpy(command + cur, temp);
+                flag = 1;
             }else if (command[cur+1] == '0'){
                 printf("-bash: !0: event not found\n");
                 return 0;
             }
         }
     }
+    if(flag)
+        printf("%s\n",command);
     return 1;
 }
 
@@ -111,9 +116,10 @@ char** parse_command(char command[]){
     char** result;
     char * temp;
     int count = 0;
-
+    char temp_command[MAX_COMMAND_LENGTH];
+    strcpy(temp_command,command);
     result = (char**)malloc(SIZE_OF_CHAR_POINTER);
-    temp = strtok(command," ");
+    temp = strtok(temp_command," ");
     result[count] = temp;
 
     count++;
@@ -154,8 +160,7 @@ void execute_command(char ** args){
                 // parent process
 
                 wait(&status);
-                if (WEXITSTATUS(status))
-                    exit(1);
+            
             }
         }
 }
