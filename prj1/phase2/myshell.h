@@ -6,7 +6,7 @@
 #include <sys/wait.h>
 
 #define MAX_ARGS 100
-#define MAX_COMMAND_LENGTH 1024
+#define MAX_COMMAND_LENGTH 8192
 #define MAX_PIPELINE 10
 #define SIZE_OF_CHAR_POINTER sizeof(char*)
 #define SIZE_OF_CHAR_DOUBLE_POINTER sizeof(char**)

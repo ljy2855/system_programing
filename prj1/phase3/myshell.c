@@ -5,13 +5,15 @@ int main(){
     char **args[MAX_PIPELINE];
     int pipe_count;
     int i;
+    sigset_t mask,prev;
     saved_stdin = dup(0);
     saved_stdout = dup(1);
     root_pid = getpid();
     read_bash_history();
     Signal(SIGINT, terminate_current_process_handler);
     Signal(SIGTSTP, suspend_process_handler);
-    sigset_t mask,prev;
+    Signal(SIGCHLD, terminate_process_handler);
+    
 
     
     
@@ -185,6 +187,7 @@ void parse_command(char command[],int * pipe_commands_count, char ** args[]){
 }
 
 int process_background_command(char ** args){
+    sigset_t mask,prev;
     if (strcmp(args[0], "jobs") == 0)
     {
         Job *job = first_job;
@@ -223,6 +226,7 @@ int process_background_command(char ** args){
     else if (strcmp(args[0], "fg") == 0)
     {
         Job *job = first_job;
+        pid_t pid;
         int status;
         if (args[1] == NULL)
         {
@@ -233,15 +237,32 @@ int process_background_command(char ** args){
         {
             if (job->id == atoi(args[1]))
             {
+                // sigemptyset(&mask);
+                // sigaddset(&mask,SIGCHLD);
+                sigaddset(&mask,SIGTSTP);
+                sigprocmask(SIG_UNBLOCK,&mask,&prev);
                 Signal(SIGCONT, resume_process_handler);
-                Signal(SIGTSTP, suspend_process_handler);
-                Signal(SIGCHLD, terminate_process_handler);
+                // Signal(SIGTSTP, suspend_process_handler);
+                // Signal(SIGCHLD, terminate_process_handler);
+                
+                
                 Sio_puts(job->command);
                 Sio_puts("\n");
+                current_pid = job->pid;
+                //sigprocmask(SIG_UNBLOCK,&mask,&prev);
                 kill(job->pid, SIGCONT);
+                
+                
                 waitpid(job->pid, &status, WUNTRACED);
+                printf("%d\n",status);
+                if(WIFSTOPPED(status))
+                    print_bg_process_state(job,process_stop);
+               
                 if (WIFEXITED(status))
+                    if(pid == job->pid)
                     remove_job_node(job);
+            
+               
                 return 1;
             }
 
@@ -254,6 +275,7 @@ int process_background_command(char ** args){
     {
         Job *job = first_job;
         int status;
+        char output[MAX_COMMAND_LENGTH * 2];
         if (args[1] == NULL)
         {
             Sio_puts("bg: usage: bg <job>\n");
@@ -263,10 +285,12 @@ int process_background_command(char ** args){
         {
             if (job->id == atoi(args[1]))
             {
-                Signal(SIGCHLD, terminate_process_handler);
+                sprintf(output,"[%d] %s &\n",job->id,job->command);
+                // Signal(SIGCHLD, terminate_process_handler);
+                // Signal(SIGTSTP, suspend_process_handler);
                 current_pid = job->pid;
-                Sio_puts(job->command);
-                Sio_puts("\n");
+                Sio_puts(output);
+                
                 job->status = process_running;
                 kill(job->pid, SIGCONT);
 
@@ -312,10 +336,6 @@ void execute_command(char command[],char ** args[], int pipe_count){
     if(process_background_command(args[0]))
         return;
 
-    
-    
-
-
     for (i = 0 ; i < pipe_count-1 ; ++i){
         pipe(fd);
       
@@ -357,12 +377,12 @@ void execute_command(char command[],char ** args[], int pipe_count){
 
         if(is_bg_process){
             create_bg_process(pid, command,0);
-            Signal(SIGCHLD, (void *)terminate_process_handler);
+            // Signal(SIGCHLD, (void *)terminate_process_handler);
             
         }
             
         if(!is_bg_process){
-            Signal(SIGCHLD, (void *)terminate_process_handler);
+            // Signal(SIGCHLD, (void *)terminate_process_handler);
             waitpid(pid, &status, WUNTRACED);
         }
     }
@@ -404,7 +424,7 @@ int create_sub_process(int in, int out, char ** args){
 
 void create_bg_process(pid_t pid,char command[],int is_stop){
     Job * new_job = (Job *)malloc(sizeof(Job));
-    
+    setpgid(pid,pid);
     new_job->pid = pid;
     new_job->prev = NULL;
     new_job->next = NULL;
@@ -427,8 +447,10 @@ void create_bg_process(pid_t pid,char command[],int is_stop){
         new_job->prev = last_job;
     }
     last_job = new_job;
-
-    print_bg_process_create(new_job->pid,new_job->id);
+    if(new_job->status == process_running)
+        print_bg_process_create(new_job->pid,new_job->id);
+    else
+        print_bg_process_state(new_job,process_stop);
 
 }
 
@@ -541,34 +563,52 @@ void terminate_process_handler(int sig){
     int status;
     pid_t pid;
     Job *cur = first_job;
+    sigset_t mask,prev;
+    int flag = 0;
     
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
-        
         while (cur != NULL)
         {
             if (cur->pid == pid)
             {
-                if(WIFEXITED(status))
+  
+                
+                if(WIFEXITED(status)){
                     print_bg_process_state(cur, process_done);
-                else
+                    remove_job_node(cur);
+                }
+                    
+                else if(WTERMSIG(status) == SIGKILL)
                 {
                     Sio_puts("\n");
                     print_bg_process_state(cur, process_terminate);
+                    remove_job_node(cur);
                 }
                     
-                remove_job_node(cur);
-                return;
+                if(cur->pid= process_stop){
+                    flag =1;
+            
+                }
+                    
+                
+                break;
+                
             }
             cur = cur->next;
         }
+        if(flag) break;
+        // sigprocmask(SIG_UNBLOCK,&mask,&prev);
+   
     }
+    
 }
 
 void suspend_process_handler(int sig){
-    //close(0);
+    close(0);
     dup2(saved_stdin, STDIN_FILENO);
     dup2(saved_stdout, STDOUT_FILENO);
+    //Sio_puts("stop\n");
 
     if(current_pid == 0){
         return;
@@ -579,39 +619,41 @@ void suspend_process_handler(int sig){
     {
         if(job->pid == current_pid){
             job->status = process_stop;
+            kill(current_pid,SIGSTOP);
             return;
         }
 
         job = job->next;
     }
     create_bg_process(current_pid, current_command, process_stop);
-
-    //signal(SIGCHLD, (void *)terminate_process_handler);
     
 }
 void resume_process_handler(int sig){
-    pid_t pgid = __getpgid(current_pid);
-    kill(pgid,SIGCONT);
     kill(current_pid,SIGCONT);
 }
 
 void terminate_current_process_handler(int sig){
+    sigset_t mask,prev;
     pid_t pid = current_pid;
     Job * job;
     job = first_job;
     if(pid != 0){
         
+        
         kill(pid,SIGKILL);
+       
         while (job != NULL)
         {
             if (job->pid == pid)
             {
                 remove_job_node(job);
-             
+            
             }
 
             job = job->next;
         }
+  
+        
         
     }
 
