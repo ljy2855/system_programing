@@ -15,9 +15,6 @@ int main(){
     Signal(SIGCHLD, terminate_process_handler);
     
 
-    
-    
-
     do
     {
         sigemptyset(&mask);
@@ -214,10 +211,15 @@ int process_background_command(char ** args){
             Sio_puts("kill: usage: kill <job>\n");
             return 1;
         }
+        if (args[1][0] != '%')
+        {
+            Sio_puts("kill: usage: kill <job>\n");
+            return 1;
+        }
 
         while (job != NULL)
         {
-            if (job->id == atoi(args[1]))
+            if (job->id == atoi(args[1]+1))
             {
                 kill(job->pid, SIGKILL);
                 return 1;
@@ -238,9 +240,14 @@ int process_background_command(char ** args){
             Sio_puts("fg: usage: fg <job>\n");
             return 1;
         }
+        if(args[1][0] != '%')
+        {
+            Sio_puts("fg: usage: fg <job>\n");
+            return 1;
+        }
         while (job != NULL)
         {
-            if (job->id == atoi(args[1]))
+            if (job->id == atoi(args[1]+1))
             {
                 // sigemptyset(&mask);
                 // sigaddset(&mask,SIGCHLD);
@@ -250,8 +257,16 @@ int process_background_command(char ** args){
                 // Signal(SIGTSTP, suspend_process_handler);
                 // Signal(SIGCHLD, terminate_process_handler);
                 
-                job->prev = last_job;
-                last_job = job;
+                // job->prev = last_job;
+                // last_job = job;
+                // if(job->prev != NULL)
+                //     job->prev->next = job->next;
+                // if(job->next != NULL)
+                //     job->next->prev = job->prev;
+                // job->next = NULL;
+                // job->prev = last_job;
+                // last_job->next = job;
+                // last_job = job;
 
 
                 Sio_puts(job->command);
@@ -262,7 +277,7 @@ int process_background_command(char ** args){
                 
                 
                 waitpid(job->pid, &status, WUNTRACED);
-                printf("%d\n",status);
+                //printf("%d\n",status);
                 if(WIFSTOPPED(status))
                     print_bg_process_state(job,process_stop);
                
@@ -289,12 +304,25 @@ int process_background_command(char ** args){
             Sio_puts("bg: usage: bg <job>\n");
             return 1;
         }
+        if (args[1][0] != '%')
+        {
+            Sio_puts("bg: usage: bg <job>\n");
+            return 1;
+        }
         while (job != NULL)
         {
-            if (job->id == atoi(args[1]))
+            if (job->id == atoi(args[1]+1))
             {
-                job->prev = last_job;
-                last_job = job;
+                // job->prev = last_job;
+                // last_job = job;
+                // if(job->prev != NULL)
+                //     job->prev->next = job->next;
+                // if(job->next != NULL)
+                //     job->next->prev = job->prev;
+                // job->next = NULL;
+                // job->prev = last_job;
+                // last_job->next = job;
+                // last_job = job;
                 strcat(job->command," &");
                 sprintf(output,"[%d] %s\n",job->id,job->command);
                 // Signal(SIGCHLD, terminate_process_handler);
@@ -490,19 +518,19 @@ void print_bg_process_state(Job * job,int status){
         strcpy(state, "Terminated");
         break;
     }
-   
-    if (last_job == job)
-    {
-        sprintf(output, "[%d]+\t%s\t\t\t %s\n", job->id, state, job->command);
-    }
-    else if (last_job->prev == job)
-    {
-        sprintf(output, "[%d]-\t%s\t\t\t %s\n", job->id, state, job->command);
-    }
-    else
-    {
-        sprintf(output, "[%d]\t%s\t\t\t %s\n", job->id, state, job->command);
-    }
+    sprintf(output, "[%d]\t%s\t\t %s\n", job->id, state, job->command);
+    // if (last_job == job)
+    // {
+    //     sprintf(output, "[%d]+\t%s\t\t\t %s\n", job->id, state, job->command);
+    // }
+    // else if (last_job->prev == job)
+    // {
+    //     sprintf(output, "[%d]-\t%s\t\t\t %s\n", job->id, state, job->command);
+    // }
+    // else
+    // {
+    //     sprintf(output, "[%d]\t%s\t\t\t %s\n", job->id, state, job->command);
+    // }
     
     
     
@@ -617,9 +645,9 @@ void terminate_process_handler(int sig){
 }
 
 void suspend_process_handler(int sig){
-    close(0);
-    dup2(saved_stdin, STDIN_FILENO);
-    dup2(saved_stdout, STDOUT_FILENO);
+    // close(0);
+    // dup2(saved_stdin, STDIN_FILENO);
+    // dup2(saved_stdout, STDOUT_FILENO);
     //Sio_puts("stop\n");
 
     if(current_pid == 0){
