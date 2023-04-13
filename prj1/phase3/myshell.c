@@ -82,6 +82,7 @@ void add_command_history(char command[], int write_file)
     command_history = (char **)realloc(command_history, sizeof(char *) * history_count);
     command_history[history_count - 1] = (char *)malloc(sizeof(char) * MAX_COMMAND_LENGTH);
     strcpy(command_history[history_count - 1], command);
+
     // if write flag is set, write it to file
     if (write_file)
     {
@@ -130,7 +131,6 @@ int replace_history_command(char command[])
                     return 0;
                 }
 
-                // printf("%s",atoi_str);
                 strcpy(temp, command_history[index - 1]);
                 len += strlen(temp) - strlen(atoi_str) + 1;
                 strcat(temp, command + cur + strlen(atoi_str) + 1);
@@ -169,75 +169,51 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
             next_command[0] = 0;
         }
 
+        
         count = 0;
-        char **result = (char **)malloc(SIZE_OF_CHAR_POINTER);
-        temp = strtok(pipe_command, " ");
+        char **result = (char **)malloc(SIZE_OF_CHAR_POINTER);  // allocate result to store argvs
+        temp = strtok(pipe_command, " ");  
 
-        result[count] = temp;
+        //store first command ex)ls, cd
+        result[count] = temp; 
 
         count++;
         while (temp != NULL)
         {
+            //if next argv is null, break
             result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
-            if (temp[0] == '\"')
-            {
-                char *next_quote_index = strstr(temp + 1, "\"");
-                // strncpy(result[count], temp, next_quote_index - temp);
-
-                result[count] = temp + 1;
-
-                *next_quote_index = 0;
-                temp = next_quote_index + 1;
-                temp = strtok(NULL, " ");
-                printf("%s\n", result[count]);
-                count++;
-
-                continue;
-            }
-            else if (temp[0] == '\'')
-            {
-                // char *next_quote_index = strstr(temp + 1, "\'");
-                temp = strtok(NULL, "\'");
-                // strncpy(result[count], temp, next_quote_index - temp);
-                result[count] = temp;
-                // strncpy(result[count], temp+1, next_quote_index- temp -1);
-                temp = strtok(NULL, "\'");
-                // remove_char(result[count],'\'');
-                // printf("%s\n",result[count]);
-
-                count++;
-
-                continue;
-            }
+            
             temp = strtok(NULL, " \'\"");
 
             result[count] = temp;
 
             count++;
         }
-        result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
-        result[count-1] = color_option;
-        result[count] = NULL;
-        
+        if(!strcmp(result[0], "ls") || !strcmp(result[0], "grep")){ // add color option
+            result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
+            result[count-1] = color_option;
+            result[count] = NULL;
+        }
+        // store all argvs
         args[pipe_count++] = result;
 
         if (next_command != NULL)
             pipe_command = next_command + sizeof(char);
 
     } while (next_command != NULL);
-
+    // store pipe counts'
     *pipe_commands_count = pipe_count;
 }
 
 int process_background_command(char **args)
 {
     sigset_t mask, prev;
-    if (strcmp(args[0], "jobs") == 0)
+    if (strcmp(args[0], "jobs") == 0) // if command is jobs
     {
         Job *job = first_job;
-        while (job != NULL)
+        while (job != NULL) // print all jobs
         {
-            if (job->status == PROCESS_RUNNING)
+            if (job->status == PROCESS_RUNNING) 
                 print_bg_process_state(job, PROCESS_RUNNING);
             else
                 print_bg_process_state(job, PROCESS_STOP);
@@ -261,7 +237,7 @@ int process_background_command(char **args)
 
         while (job != NULL)
         {
-            if (job->id == atoi(args[1] + 1))
+            if (job->id == atoi(args[1] + 1)) // if find job with it's id, send kill signal
             {
                 kill(job->pid, SIGKILL);
                 return 1;
@@ -269,7 +245,7 @@ int process_background_command(char **args)
 
             job = job->next;
         }
-        Sio_puts("kill: no such job\n");
+        Sio_puts("kill: no such job\n"); // if can't find job
         return 1;
     }
     else if (strcmp(args[0], "fg") == 0)
@@ -291,6 +267,7 @@ int process_background_command(char **args)
         {
             if (job->id == atoi(args[1] + 1))
             {
+                //reset sigmask
                 sigaddset(&mask, SIGTSTP);
                 sigprocmask(SIG_UNBLOCK, &mask, &prev);
                 Signal(SIGCONT, resume_process_handler);
@@ -298,26 +275,26 @@ int process_background_command(char **args)
                 Sio_puts(job->command);
                 Sio_puts("\n");
                 current_pid = job->pid;
-                kill(job->pid, SIGCONT);
+                kill(job->pid, SIGCONT); // resume target process
 
-                waitpid(job->pid, &status, WUNTRACED);
-                if (WIFSTOPPED(status))
-                    print_bg_process_state(job, PROCESS_STOP);
-
-                if (WIFEXITED(status))
-                    if (pid == job->pid)
-                        remove_job_node(job);
-
+                waitpid(job->pid, &status, WUNTRACED); // catch process state terminated or stopped
+                if (WIFSTOPPED(status)) // if process stopped
+                {
+                    print_bg_process_state(job, PROCESS_STOP); 
+                    return 1;
+                }
+                remove_job_node(job); // when process terminated, remove current job
                 return 1;
             }
 
             job = job->next;
         }
-        Sio_puts("fg: no such job\n");
+        Sio_puts("fg: no such job\n"); // if can't find job
         return 1;
     }
     else if (strcmp(args[0], "bg") == 0)
     {
+    
         Job *job = first_job;
         int status;
         char output[MAX_COMMAND_LENGTH * 2];
@@ -335,13 +312,15 @@ int process_background_command(char **args)
         {
             if (job->id == atoi(args[1] + 1))
             {
+                //print job state
                 strcat(job->command, " &");
                 sprintf(output, "[%d] %s\n", job->id, job->command);
                 current_pid = job->pid;
                 Sio_puts(output);
 
+                // change process state and continue
                 job->status = PROCESS_RUNNING;
-                kill(job->pid, SIGCONT);
+                kill(job->pid, SIGCONT); // send signal to continue process
 
                 return 1;
             }
@@ -351,7 +330,7 @@ int process_background_command(char **args)
         Sio_puts("bg: no such job\n");
         return 1;
     }
-    return 0;
+    return 0; // if job command didn't excuted, return 0
 }
 
 int parse_bg_command(char **args)
@@ -363,12 +342,12 @@ int parse_bg_command(char **args)
 
     while (cur != NULL)
     {
-        if ((temp = strchr(cur, '&')) != NULL)
+        if ((temp = strchr(cur, '&')) != NULL) // if find & in argv
         {
-            if (cur[0] == '&')
+            if (cur[0] == '&') // if & character is next to argv ex) ls&
                 args[count] = NULL;
             else
-                temp[0] = 0;
+                temp[0] = 0; // ex) ls &
 
             return 1;
         }
@@ -380,58 +359,61 @@ int parse_bg_command(char **args)
 
 void execute_command(char command[], char **args[], int pipe_count)
 {
-    int status;
+    int status; // store child process status
     pid_t pid;
     int in, fd[2];
-    in = STDIN_FILENO;
+    in = STDIN_FILENO; // store stdin fd
     int i = 0;
     int is_bg_process = 0;
-    if (process_background_command(args[0]))
+    if (process_background_command(args[0])) // if excute job command, return
         return;
 
-    for (i = 0; i < pipe_count - 1; ++i)
+    for (i = 0; i < pipe_count - 1; ++i) // excute pipe command
     {
-        pipe(fd);
+        pipe(fd); // open pipe to connect excute output with next input of excute
 
         create_sub_process(in, fd[1], args[i]);
-        close(fd[1]);
-        in = fd[0];
+        close(fd[1]); // close unused pipe
+        in = fd[0]; // connect current output to next input
     }
-    if (in != STDIN_FILENO)
+    if (in != STDIN_FILENO) // if current input is not stdin
     {
-        dup2(in, 0);
+        dup2(in, 0); // connect current input to stdin
     }
 
-    is_bg_process = parse_bg_command(args[i]);
-    if (execute_excp_command(args[i]))
+    is_bg_process = parse_bg_command(args[i]); // check this command is background excution
+    if (execute_excp_command(args[i])) // if this command is built in, excute and return
         return;
 
-    if ((pid = fork()) == 0)
+    if ((pid = fork()) == 0) 
     {
-
+        //child process
         if (execvp(args[i][0], args[i]) < 0)
-        {
+        {   // if excution failed, print error
             printf("%s: Command not found.\n", args[i][0]);
-            exit(1);
+            exit(1); // return abort
         }
 
-        close(0);
-        exit(1);
+        close(0); // close stdin
+        exit(0);
     }
     else
     {
-        current_pid = pid;
+        current_pid = pid; // store current pid
 
-        dup2(saved_stdin, STDIN_FILENO);
+        // recover stdin, stdout
+        dup2(saved_stdin, STDIN_FILENO); 
         dup2(saved_stdout, STDOUT_FILENO);
 
         if (is_bg_process)
         {
+            //if this process is background, create job
             create_bg_process(pid, command, 0);
         }
 
         if (!is_bg_process)
         {
+            //wait untill process stopped, or terminated
             waitpid(pid, &status, WUNTRACED);
         }
     }
@@ -445,18 +427,20 @@ int create_sub_process(int in, int out, char **args)
     {
         if (in != STDIN_FILENO)
         {
+            // if input is not stdin, connect input to stdin, close input
             dup2(in, STDIN_FILENO);
             close(in);
         }
 
         if (out != STDOUT_FILENO)
         {
+            // if output is not stdout, connect output to stdout, close output
             dup2(out, STDOUT_FILENO);
             close(out);
         }
 
-        if (!execute_excp_command(args))
-        {
+        if (!execute_excp_command(args)) // check this is built in command
+        {   
             if (execvp(args[0], args) < 0)
             {
                 printf("%s: Command not found.\n", args[0]);
@@ -467,13 +451,14 @@ int create_sub_process(int in, int out, char **args)
         exit(0);
     }
     else
-        waitpid(pid, &status, 0);
+        waitpid(pid, &status, 0); // wait child process terminated
 
     return pid;
 }
 
 void create_bg_process(pid_t pid, char command[], int is_stop)
 {
+    // allocate new job, store info
     Job *new_job = (Job *)malloc(sizeof(Job));
     setpgid(pid, pid);
     new_job->pid = pid;
@@ -487,6 +472,7 @@ void create_bg_process(pid_t pid, char command[], int is_stop)
     strcpy(new_job->command, command);
     remove_char(new_job->command, '&');
 
+    // add to job list
     if (first_job == NULL)
         first_job = new_job;
 
@@ -496,6 +482,8 @@ void create_bg_process(pid_t pid, char command[], int is_stop)
         new_job->prev = last_job;
     }
     last_job = new_job;
+
+    // print process state
     if (new_job->status == PROCESS_RUNNING)
         print_bg_process_create(new_job->pid, new_job->id);
     else
@@ -504,6 +492,7 @@ void create_bg_process(pid_t pid, char command[], int is_stop)
 
 void print_bg_process_create(pid_t pid, int id)
 {
+    // print bg process create
     char output[MAX_COMMAND_LENGTH] = "";
     sprintf(output, "[%d] %d\n", id, pid);
     Sio_puts(output);
@@ -529,6 +518,7 @@ void print_bg_process_state(Job *job, int status)
         strcpy(state, "Terminated");
         break;
     }
+    //print process state
     sprintf(output, "[%d]\t%s\t\t %s\n", job->id, state, job->command);
 
     Sio_puts(output);
@@ -552,11 +542,13 @@ int execute_excp_command(char **args)
     int i = 0;
     if (strcmp(args[0], "cd") == 0)
     {
+        // change directory 
         chdir(args[1]);
         return 1;
     }
     else if (strcmp(args[0], "exit") == 0)
     {
+        //free history 
         for (; i < history_count; i++)
         {
             free(command_history[i]);
@@ -567,7 +559,7 @@ int execute_excp_command(char **args)
 
     else if (strcmp(args[0], "history") == 0)
     {
-
+        // print all history
         for (; i < history_count; i++)
         {
             printf("%d\t%s\n", i + 1, command_history[i]);
@@ -581,6 +573,11 @@ int execute_excp_command(char **args)
 
 void remove_job_node(Job *job)
 {
+    sigset_t mask, prev;
+    sigaddset(&mask, SIGCHLD);
+    sigprocmask(SIG_BLOCK, &mask, &prev);
+    
+    // remove job in job list
     if (job == first_job)
     {
         first_job = job->next;
@@ -600,10 +597,12 @@ void remove_job_node(Job *job)
         job->prev->next = job->next;
 
     free(job);
+    sigprocmask(SIG_UNBLOCK, &mask, &prev);
 }
 
 void terminate_process_handler(int sig)
 {
+    // when process terminate itself or signal, this handler called
     int status;
     pid_t pid;
     Job *cur = first_job;
@@ -611,12 +610,15 @@ void terminate_process_handler(int sig)
 
     while ((pid = waitpid(-1, &status, WNOHANG)) > 0)
     {
+        // wait terminated process, get it's status
         while (cur != NULL)
         {
+            //find target process in background job list
             if (cur->pid == pid)
             {
                 if (WIFEXITED(status))
                 {
+                    // if process terminated normally 
                     Sio_puts("\n");
                     print_bg_process_state(cur, PROCESS_DONE);
                     remove_job_node(cur);
@@ -624,35 +626,32 @@ void terminate_process_handler(int sig)
 
                 else if (WTERMSIG(status) == SIGKILL)
                 {
+                    // if process terminated by signal
                     Sio_puts("\n");
                     print_bg_process_state(cur, PROCESS_TERMINATE);
                     remove_job_node(cur);
                 }
-
-                if (cur->pid = PROCESS_STOP)
-                {
-                    flag = 1;
-                }
+                
                 break;
             }
             cur = cur->next;
         }
-        if (flag)
-            break;
     }
 }
 
 void suspend_process_handler(int sig)
 {
-
+    // when get terminal stop signal, stop process
     if (current_pid == 0)
     {
+        // when it is root process, pass
         return;
     }
 
     Job *job = first_job;
     while (job != NULL)
     {
+        //find current fg process and stop
         if (job->pid == current_pid)
         {
             job->status = PROCESS_STOP;
@@ -663,32 +662,35 @@ void suspend_process_handler(int sig)
 
         job = job->next;
     }
+    // if current process is not in job list, add it to job
     create_bg_process(current_pid, current_command, PROCESS_STOP);
 }
 void resume_process_handler(int sig)
 {
+    //resume target process
     kill(current_pid, SIGCONT);
 }
 
 void terminate_current_process_handler(int sig)
 {
+    // when get interrupt signal, terminate current process
     pid_t pid = current_pid;
     Job *job;
     job = first_job;
     if (pid != 0)
     {
-
-        kill(pid, SIGKILL);
-
+        //find target job
         while (job != NULL)
         {
             if (job->pid == pid)
             {
-                remove_job_node(job);
+                // terminate target process
+                kill(pid, SIGKILL);
             }
 
             job = job->next;
         }
+         
     }
 }
 

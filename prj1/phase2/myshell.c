@@ -197,9 +197,12 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
 
             count++;
         }
-        result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
-        result[count-1] = color_option;
-        result[count] = NULL;
+        if(!strcmp(result[0], "ls") || !strcmp(result[0], "grep")){
+            result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
+            result[count-1] = color_option;
+            result[count] = NULL;
+        }
+        
 
         args[pipe_count++] = result;
        
