@@ -6,7 +6,7 @@ int main()
     char **args[MAX_PIPELINE];
     int pipe_count;
     int i;
-    read_bash_history();
+    read_bash_history(); // read before history
 
     do
     {
@@ -18,10 +18,10 @@ int main()
             continue;
         command[strcspn(command, "\n")] = 0; // remove \n
 
-        if (!replace_history_command(command))
+        if (!replace_history_command(command)) // if can't replace history command, pass loop
             continue;
         parse_command(command, &pipe_count, args);
-        if (*args[0] == NULL)
+        if (*args[0] == NULL) // if command is just blank, pass loop
             continue;
         add_command_history(command, 1);
 
@@ -34,6 +34,7 @@ int main()
 }
 int read_bash_history()
 {
+    // open bash_history
     getcwd(project_path, 300);
     strcat(project_path, "/.bash_history");
     fp = fopen(project_path, "a");
@@ -44,10 +45,11 @@ int read_bash_history()
     };
     char *temp;
 
+    // read all command history
     while (!feof(fp))
     {
         fgets(command, MAX_COMMAND_LENGTH, fp);
-        if (command[0] == '\n' || command[0] == 0)
+        if (command[0] == '\n' || command[0] == 0) // if command is blank , pass
             continue;
         command[strcspn(command, "\n")] = 0;
         add_command_history(command, 0);
@@ -56,6 +58,7 @@ int read_bash_history()
 }
 void add_command_history(char command[], int write_file)
 {
+    // command is same with previous command, pass
     if (history_count)
         if (!strcmp(command, command_history[history_count - 1]))
             return;
@@ -64,6 +67,8 @@ void add_command_history(char command[], int write_file)
     command_history = (char **)realloc(command_history, sizeof(char *) * history_count);
     command_history[history_count - 1] = (char *)malloc(sizeof(char) * MAX_COMMAND_LENGTH);
     strcpy(command_history[history_count - 1], command);
+
+     // if write flag is set, write it to file
     if (write_file)
     {
 
@@ -81,12 +86,12 @@ int replace_history_command(char command[])
     char temp[MAX_COMMAND_LENGTH];
     char atoi_str[100];
     len = strlen(command);
-    int flag = 0;
+    int flag = 0; // flag store success replacing history command
     for (cur = 0; cur < len - 1; cur++)
     {
         if (command[cur] == '!')
         {
-            if (command[cur + 1] == '!')
+            if (command[cur + 1] == '!') // if !! command match, replace !! to target command
             {
                 if (history_count == 0)
                 {
@@ -101,7 +106,7 @@ int replace_history_command(char command[])
                 strcpy(command + cur, temp);
                 flag = 1;
             }
-            else if (atoi(command + cur + 1))
+            else if (atoi(command + cur + 1)) // if !# command match, replace !# to target command
             {
                 index = atoi(command + cur + 1);
                 sprintf(atoi_str, "%d", index);
@@ -143,53 +148,24 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
     do
     {
 
-        next_command = strstr(pipe_command, "|");
+        next_command = strstr(pipe_command, "|"); //check command has pipe character
         if (next_command != NULL)
         {
             next_command[0] = 0;
         }
 
         count = 0;
-        char **result = (char **)malloc(SIZE_OF_CHAR_POINTER);
+        char **result = (char **)malloc(SIZE_OF_CHAR_POINTER); // allocate result to store argvs
         temp = strtok(pipe_command, " ");
-
+        //store first command ex)ls, cd
         result[count] = temp;
 
         count++;
         while (temp != NULL)
         {
+            //if next argv is null, break
             result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
 
-            if (temp[0] == '\"')
-            {
-                char *next_quote_index = strstr(temp + 1, "\"");
-                // strncpy(result[count], temp, next_quote_index - temp);
-
-                result[count] = temp + 1;
-
-                *next_quote_index = 0;
-                temp = next_quote_index + 1;
-                temp = strtok(NULL, " ");
-                printf("%s\n", result[count]);
-                count++;
-
-                continue;
-            }
-            else if (temp[0] == '\'')
-            {
-                // char *next_quote_index = strstr(temp + 1, "\'");
-                temp = strtok(NULL, "\'");
-                // strncpy(result[count], temp, next_quote_index - temp);
-                result[count] = temp;
-                // strncpy(result[count], temp+1, next_quote_index- temp -1);
-                temp = strtok(NULL, "\'");
-                // remove_char(result[count],'\'');
-                // printf("%s\n",result[count]);
-
-                count++;
-
-                continue;
-            }
         
             temp = strtok(NULL, " \'\"");
 
@@ -197,44 +173,45 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
 
             count++;
         }
-        if(!strcmp(result[0], "ls") || !strcmp(result[0], "grep")){
+        // add color option
+        if(!strcmp(result[0], "ls") || !strcmp(result[0], "grep")){ 
             result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
             result[count-1] = color_option;
             result[count] = NULL;
         }
         
-
+        // store all argvs
         args[pipe_count++] = result;
        
         if (next_command != NULL)
             pipe_command = next_command + sizeof(char);
 
     } while (next_command != NULL);
-
+     // store pipe counts'
     *pipe_commands_count = pipe_count;
 }
 
 void execute_command(char **args[], int pipe_count)
 {
-    int status;
+    int status; // store child process status
     pid_t pid;
-    int in, fd[2];
+    int in, fd[2];  // store stdin fd
     in = 0;
     int i = 0;
     int saved_stdout = dup(1);
     int saved_stdin = dup(0);
 
-    for (i = 0; i < pipe_count - 1; ++i)
+    for (i = 0; i < pipe_count - 1; ++i) // excute pipe command
     {
-        pipe(fd);
+        pipe(fd); // open pipe to connect excute output with next input of excute
 
         create_sub_process(in, fd[1], args[i]);
-        close(fd[1]);
-        in = fd[0];
+        close(fd[1]); // close unused pipe
+        in = fd[0]; // connect current output to next input
     }
-    if (in != 0)
+    if (in != STDIN_FILENO) // if current input is not stdin
     {
-        dup2(in, 0);
+        dup2(in, 0); // connect current input to stdin
     }
     if (i == 0)
     {
@@ -244,20 +221,22 @@ void execute_command(char **args[], int pipe_count)
 
     if (pid = fork() == 0)
     {
-        close(in);
-        
+
+         //child process
         if (execvp(args[i][0], args[i]) < 0)
         {
+            // if excution failed, print error
             printf("%s: Command not found.\n", args[i][0]);
-            exit(0);
+            exit(1); // return abort
         }
-        close(0);
+        close(0); // close stdin
+        exit(0);
     }
     else
     {
 
         waitpid(pid, &status, 0);
-        dup2(saved_stdin, 0);
+        dup2(saved_stdin, 0); // recover stdin
     }
 }
 
@@ -269,17 +248,20 @@ int create_sub_process(int in, int out, char **args)
     {
         if (in != STDIN_FILENO)
         {
+            // if input is not stdin, connect input to stdin, close input
             dup2(in, STDIN_FILENO);
             close(in);
         }
 
         if (out != STDOUT_FILENO)
         {
+            // if output is not stdout, connect output to stdout, close output
             dup2(out, STDOUT_FILENO);
             close(out);
         }
-        if (!execute_excp_command(args))
-        {
+
+        if (!execute_excp_command(args)) // check this is built in command
+        {   
             if (execvp(args[0], args) < 0)
             {
                 printf("%s: Command not found.\n", args[0]);
@@ -290,21 +272,24 @@ int create_sub_process(int in, int out, char **args)
         exit(0);
     }
     else
-        waitpid(pid, &status, 0);
+        waitpid(pid, &status, 0); // wait child process terminated
 
     return pid;
 }
+
 
 int execute_excp_command(char **args)
 {
     int i = 0;
     if (strcmp(args[0], "cd") == 0)
     {
+        // change directory 
         chdir(args[1]);
         return 1;
     }
     else if (strcmp(args[0], "exit") == 0)
     {
+         //free history 
         for (; i < history_count; i++)
         {
             free(command_history[i]);
@@ -314,7 +299,7 @@ int execute_excp_command(char **args)
     }
     else if (strcmp(args[0], "history") == 0)
     {
-
+        // print all history
         for (; i < history_count; i++)
         {
             printf("%d\t%s\n", i + 1, command_history[i]);

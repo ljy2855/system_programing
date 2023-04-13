@@ -7,6 +7,7 @@ int main()
     int pipe_count;
     int i;
     sigset_t mask, prev;
+    // save stdin, stdout
     saved_stdin = dup(0);
     saved_stdout = dup(1);
     root_pid = getpid();
@@ -401,9 +402,8 @@ void execute_command(char command[], char **args[], int pipe_count)
     {
         current_pid = pid; // store current pid
 
-        // recover stdin, stdout
+        // recover stdin
         dup2(saved_stdin, STDIN_FILENO); 
-        dup2(saved_stdout, STDOUT_FILENO);
 
         if (is_bg_process)
         {
@@ -554,7 +554,7 @@ int execute_excp_command(char **args)
             free(command_history[i]);
         }
         free(command_history);
-        exit(0);
+        exit(1);
     }
 
     else if (strcmp(args[0], "history") == 0)

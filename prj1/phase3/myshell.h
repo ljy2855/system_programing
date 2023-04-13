@@ -40,7 +40,26 @@ char **command_history;
 int history_count = 0;
 FILE *fp;
 char project_path[200];
-
+/**
+ * @brief read before command history and store 
+ * 
+ * @return int 
+ */
+int read_bash_history();
+/**
+ * @brief add and store command history 
+ * 
+ * @param command 
+ * @param write_file 
+ */
+void add_command_history(char command[], int write_file);
+/**
+ * @brief replace history command (!!, !#) to target command
+ * 
+ * @param command 
+ * @return int 
+ */
+int replace_history_command(char command[]);
 /**
  * @brief command parser get pipe counts, args
  * 
@@ -146,26 +165,7 @@ void resume_process_handler(int sig);
  * @param sig 
  */
 void terminate_current_process_handler(int sig);
-/**
- * @brief read before command history and store 
- * 
- * @return int 
- */
-int read_bash_history();
-/**
- * @brief add and store command history 
- * 
- * @param command 
- * @param write_file 
- */
-void add_command_history(char command[], int write_file);
-/**
- * @brief replace history command (!!, !#) to target command
- * 
- * @param command 
- * @return int 
- */
-int replace_history_command(char command[]);
+
 
 //csapp.h 
 void Kill(pid_t pid, int signum);
