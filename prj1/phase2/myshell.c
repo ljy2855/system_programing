@@ -26,7 +26,7 @@ int main()
         add_command_history(command, 1);
 
         execute_command(args, pipe_count);
-
+        memset(command,0,MAX_COMMAND_LENGTH);
         for (i = 0; i < pipe_count; i++)
             free(args[i]);
 
@@ -136,6 +136,8 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
     int pipe_count = 0;
     char *pipe_command = malloc(sizeof(char) * MAX_COMMAND_LENGTH);
     char *next_command;
+    char *color_option = (char *)malloc(sizeof(char) *20);
+    strcpy(color_option, "--color=auto");
     strcpy(pipe_command, command);
 
     do
@@ -188,15 +190,19 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
 
                 continue;
             }
-
+        
             temp = strtok(NULL, " \'\"");
 
             result[count] = temp;
 
             count++;
         }
-        args[pipe_count++] = result;
+        result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
+        result[count-1] = color_option;
+        result[count] = NULL;
 
+        args[pipe_count++] = result;
+       
         if (next_command != NULL)
             pipe_command = next_command + sizeof(char);
 
@@ -236,6 +242,7 @@ void execute_command(char **args[], int pipe_count)
     if (pid = fork() == 0)
     {
         close(in);
+        
         if (execvp(args[i][0], args[i]) < 0)
         {
             printf("%s: Command not found.\n", args[i][0]);

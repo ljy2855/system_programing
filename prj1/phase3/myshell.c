@@ -157,6 +157,8 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
     int pipe_count = 0;
     char *pipe_command = malloc(sizeof(char) * MAX_COMMAND_LENGTH);
     char *next_command;
+    char *color_option = (char *)malloc(sizeof(char) *20);
+    strcpy(color_option, "--color=auto");
     strcpy(pipe_command, command);
 
     do
@@ -177,12 +179,46 @@ void parse_command(char command[], int *pipe_commands_count, char **args[])
         while (temp != NULL)
         {
             result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
-            temp = strtok(NULL, " ");
+            if (temp[0] == '\"')
+            {
+                char *next_quote_index = strstr(temp + 1, "\"");
+                // strncpy(result[count], temp, next_quote_index - temp);
+
+                result[count] = temp + 1;
+
+                *next_quote_index = 0;
+                temp = next_quote_index + 1;
+                temp = strtok(NULL, " ");
+                printf("%s\n", result[count]);
+                count++;
+
+                continue;
+            }
+            else if (temp[0] == '\'')
+            {
+                // char *next_quote_index = strstr(temp + 1, "\'");
+                temp = strtok(NULL, "\'");
+                // strncpy(result[count], temp, next_quote_index - temp);
+                result[count] = temp;
+                // strncpy(result[count], temp+1, next_quote_index- temp -1);
+                temp = strtok(NULL, "\'");
+                // remove_char(result[count],'\'');
+                // printf("%s\n",result[count]);
+
+                count++;
+
+                continue;
+            }
+            temp = strtok(NULL, " \'\"");
 
             result[count] = temp;
 
             count++;
         }
+        result = realloc(result, SIZE_OF_CHAR_POINTER * (count + 1));
+        result[count-1] = color_option;
+        result[count] = NULL;
+        
         args[pipe_count++] = result;
 
         if (next_command != NULL)
@@ -552,6 +588,11 @@ void remove_job_node(Job *job)
     if (job == last_job)
     {
         last_job = job->prev;
+        
+        if(last_job == NULL)
+            curruent_job_id = 1;
+        else
+            curruent_job_id = last_job->id + 1;
     }
     if (job->next != NULL)
         job->next->prev = job->prev;
