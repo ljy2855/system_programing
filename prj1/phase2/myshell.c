@@ -201,9 +201,9 @@ void execute_command(char **args[], int pipe_count)
     int saved_stdout = dup(1);
     int saved_stdin = dup(0);
 
-    for (i = 0; i < pipe_count - 1; ++i) // excute pipe command
+    for (i = 0; i < pipe_count - 1; ++i) // execute pipe command
     {
-        pipe(fd); // open pipe to connect excute output with next input of excute
+        pipe(fd); // open pipe to connect execute output with next input of execute
 
         create_sub_process(in, fd[1], args[i]);
         close(fd[1]); // close unused pipe
@@ -225,7 +225,7 @@ void execute_command(char **args[], int pipe_count)
          //child process
         if (execvp(args[i][0], args[i]) < 0)
         {
-            // if excution failed, print error
+            // if execution failed, print error
             printf("%s: Command not found.\n", args[i][0]);
             exit(1); // return abort
         }

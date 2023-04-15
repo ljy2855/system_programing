@@ -167,7 +167,7 @@ void execute_command(char **args)
             // child process
             if (execvp(args[0], args) < 0)
             {
-                // if excution failed, print error
+                // if execution failed, print error
                 printf("%s: Command not found.\n", args[0]);
                 exit(0);
             }

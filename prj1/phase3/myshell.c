@@ -23,6 +23,7 @@ int main()
         // block terminal stop signal in myshell
         sigemptyset(&mask);
         sigaddset(&mask, SIGTSTP);
+	    sigaddset(&mask, SIGINT);
         sigprocmask(SIG_BLOCK, &mask, &prev);
 
         pipe_count = 0;
@@ -40,7 +41,7 @@ int main()
         if (*args[0] == NULL)
             continue; // if command is just blank, pass loop
         add_command_history(command, 1);
-
+    
         sigprocmask(SIG_UNBLOCK, &mask, NULL); // unblock terminal stop signal
         execute_command(command, args, pipe_count);
 
@@ -268,10 +269,15 @@ int process_background_command(char **args)
         {
             if (job->id == atoi(args[1] + 1))
             {
+                Signal(SIGINT,NULL);
                 //reset sigmask
+		        sigemptyset(&mask);
                 sigaddset(&mask, SIGTSTP);
+		        sigaddset(&mask, SIGINT);
+                
                 sigprocmask(SIG_UNBLOCK, &mask, &prev);
                 Signal(SIGCONT, resume_process_handler);
+                Signal(SIGINT,terminate_current_process_handler);
 
                 Sio_puts(job->command);
                 Sio_puts("\n");
@@ -331,7 +337,7 @@ int process_background_command(char **args)
         Sio_puts("bg: no such job\n");
         return 1;
     }
-    return 0; // if job command didn't excuted, return 0
+    return 0; // if job command didn't executed, return 0
 }
 
 int parse_bg_command(char **args)
@@ -366,12 +372,12 @@ void execute_command(char command[], char **args[], int pipe_count)
     in = STDIN_FILENO; // store stdin fd
     int i = 0;
     int is_bg_process = 0;
-    if (process_background_command(args[0])) // if excute job command, return
+    if (process_background_command(args[0])) // if execute job command, return
         return;
 
-    for (i = 0; i < pipe_count - 1; ++i) // excute pipe command
+    for (i = 0; i < pipe_count - 1; ++i) // execute pipe command
     {
-        pipe(fd); // open pipe to connect excute output with next input of excute
+        pipe(fd); // open pipe to connect execute output with next input of execute
 
         create_sub_process(in, fd[1], args[i]);
         close(fd[1]); // close unused pipe
@@ -382,15 +388,15 @@ void execute_command(char command[], char **args[], int pipe_count)
         dup2(in, 0); // connect current input to stdin
     }
 
-    is_bg_process = parse_bg_command(args[i]); // check this command is background excution
-    if (execute_excp_command(args[i])) // if this command is built in, excute and return
+    is_bg_process = parse_bg_command(args[i]); // check this command is background execution
+    if (execute_excp_command(args[i])) // if this command is built in, execute and return
         return;
 
     if ((pid = fork()) == 0) 
     {
         //child process
         if (execvp(args[i][0], args[i]) < 0)
-        {   // if excution failed, print error
+        {   // if execution failed, print error
             printf("%s: Command not found.\n", args[i][0]);
             exit(1); // return abort
         }
