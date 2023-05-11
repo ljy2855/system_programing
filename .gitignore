@@ -1,5 +1,12 @@
 .vscode
 *.o
+
+#prj1
 myShell
 test
 .bash_history
+
+#prj2
+multiclient
+stockclient
+stockserver

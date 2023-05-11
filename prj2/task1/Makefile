@@ -6,7 +6,7 @@ all: multiclient stockclient stockserver
 
 multiclient: multiclient.c csapp.c csapp.h
 stockclient: stockclient.c csapp.c csapp.h
-stockserver: stockserver.c echo.c csapp.c csapp.h
+stockserver: stockserver.c echo.c csapp.c csapp.h stock_endpoint.c
 
 clean:
 	rm -rf *~ multiclient stockclient stockserver *.o
