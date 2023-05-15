@@ -2,6 +2,8 @@
 #define NOT_FOUND -1
 #define NOT_ENOUGH 0
 #define SUCCESS 1
+#define MAX_CLIENT 128
+#define MAX_FD 1024
 typedef struct stock Stock;
 struct stock
 {
@@ -15,6 +17,7 @@ struct stock
 
 char  stock_info[MAXBUF];
 Stock *root_tree = NULL;
+
 
 void insert_stock(int ID, int price, int cnt){
     Stock *new_stock = (Stock *)malloc(sizeof(Stock));
@@ -104,6 +107,13 @@ void set_stocks_info(Stock *cur)
     }
 
 }
+void write_to_file()
+{
+    FILE *fp = fopen("stock.txt", "w");
+    fprintf(fp, "%s", stock_info);
+    fclose(fp);
+}
+
 int update_stock(int ID, int cnt)
 {
     Stock *target_stock = get_stock(ID);
@@ -120,18 +130,72 @@ int update_stock(int ID, int cnt)
     return SUCCESS;
 }
 
+char * process_request(char command[]){
+    char * prefix;
+    char * result = (char*) malloc(sizeof(char)* MAXBUF);
+    memset(result,0,MAXBUF);
+    prefix = strtok(command, " \n");
+    if(strcmp(prefix,"show")== 0){
+        set_stocks_info(root_tree);
+ 
+        strcpy(result,stock_info);
+    }else if(strcmp(prefix, "buy") == 0){
+        int id, cnt;
+        id = atoi(strtok(NULL," \n"));
+        cnt = atoi(strtok(NULL," \n"));
+        cnt *= -1;
+        switch (update_stock(id,cnt))
+        {
+        case SUCCESS:
+            strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
+            break;
+        
+        case NOT_FOUND:
+            strcpy(result,"Stock Not found\n");
+            break;
+        case NOT_ENOUGH:
+            strcpy(result,"Not enough left stock\n");
+            break;
+        }
+
+
+    }else if(strcmp(prefix, "sell") == 0 ){
+        int id, cnt;
+        id = atoi(strtok(NULL," \n"));
+        cnt = atoi(strtok(NULL," \n"));
+        switch (update_stock(id,cnt))
+        {
+        case SUCCESS:
+            strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
+            break;
+        
+        case NOT_FOUND:
+            strcpy(result,"Stock Not found\n");
+            break;
+        }
+    }
+    return result;
+}
+
+void terminate_handler(int sig){
+    printf("write to file...\n");
+    write_to_file();
+    printf("write file success\n");
+    printf("server close\n");
+    exit(0);
+}
+
+
 int init_stock(){
     FILE *fp = fopen("stock.txt", "r");
-    char buf[MAXBUF];
     while(!feof(fp)){
         int id, cnt, price;
-        fscanf(fp,"%d %d %d", &id, &cnt, &price);
-        //printf("%d %d %d\n",id,cnt,price);
-        insert_stock(id, price, cnt);
+        if(fscanf(fp,"%d %d %d", &id, &cnt, &price)>0)
+            insert_stock(id, price, cnt);
     }
     set_stocks_info(root_tree);
-    printf("%s\n", stock_info);
-    update_stock(1, -20);
-    printf("%s\n", stock_info);
+    //printf("%s\n", stock_info);
+    fclose(fp);
     return 1;
 }
+

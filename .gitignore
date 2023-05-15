@@ -1,5 +1,8 @@
 .vscode
 *.o
+*.gch
+a.out
+test.c
 
 #prj1
 myShell
