@@ -21,6 +21,7 @@ Stock *root_tree = NULL;
 
 void insert_stock(int ID, int price, int cnt){
     Stock *new_stock = (Stock *)malloc(sizeof(Stock));
+    Sem_init(&new_stock->mutex,0,1);
     new_stock->ID = ID;
     new_stock->price = price;
     new_stock->cnt = cnt;
@@ -96,13 +97,14 @@ void set_stocks_info(Stock *cur)
     }
     char temp[200];
     if(cur != NULL){
+        P(&cur->mutex);
         sprintf(temp, "%d %d %d\n",cur->ID,cur->cnt,cur->price);
         strcat(stock_info, temp);
+        
         set_stocks_info(cur->left_stock);
         set_stocks_info(cur->right_stock);
-        
-        
-    }else{
+        V(&cur->mutex);
+        }else{
         // return '\0';
     }
 
@@ -117,6 +119,7 @@ void write_to_file()
 int update_stock(int ID, int cnt)
 {
     Stock *target_stock = get_stock(ID);
+    P(&target_stock->mutex);
     if (target_stock == NULL)
     {
         return NOT_FOUND;
@@ -125,7 +128,9 @@ int update_stock(int ID, int cnt)
     {
         return NOT_ENOUGH;
     }
+    
     target_stock->cnt += cnt;
+    V(&target_stock->mutex);
     set_stocks_info(root_tree);
     return SUCCESS;
 }
