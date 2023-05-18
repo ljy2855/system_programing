@@ -4,10 +4,6 @@
 /* $begin echoserverimain */
 #include "csapp.h"
 
-
-
-
-
 void echo(int connfd);
 void init_stock();
 void * connect_client(void *arg);
@@ -56,7 +52,6 @@ void * connect_client(void *arg){
     char * response;
     rio_t rio;
     pthread_detach(pthread_self());
-    
     
 
     Rio_readinitb(&rio, connfd);

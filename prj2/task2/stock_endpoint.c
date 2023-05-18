@@ -2,8 +2,6 @@
 #define NOT_FOUND -1
 #define NOT_ENOUGH 0
 #define SUCCESS 1
-#define MAX_CLIENT 128
-#define MAX_FD 1024
 typedef struct stock Stock;
 struct stock
 {
@@ -15,9 +13,7 @@ struct stock
     sem_t mutex;
 };
 
-char  stock_info[MAXBUF];
 Stock *root_tree = NULL;
-
 
 void insert_stock(int ID, int price, int cnt){
     Stock *new_stock = (Stock *)malloc(sizeof(Stock));
@@ -60,7 +56,8 @@ void insert_stock(int ID, int price, int cnt){
 Stock * get_stock(int ID){
     Stock *cur = root_tree;
     while(cur != NULL){
-        if(cur->ID == ID){
+        if (cur->ID == ID)
+        {
             break;
         }
         if(cur->ID > ID){
@@ -90,29 +87,26 @@ Stock * get_stock(int ID){
 
 
 
-void set_stocks_info(Stock *cur)
+void set_stocks_info(Stock *cur,char stock_info[])
 {
-    if(cur == root_tree){
-        stock_info[0] = 0;
-    }
+  
+    
     char temp[200];
     if(cur != NULL){
         P(&cur->mutex);
         sprintf(temp, "%d %d %d\n",cur->ID,cur->cnt,cur->price);
         strcat(stock_info, temp);
         
-        set_stocks_info(cur->left_stock);
-        set_stocks_info(cur->right_stock);
+        set_stocks_info(cur->left_stock,stock_info);
+        set_stocks_info(cur->right_stock,stock_info);
         V(&cur->mutex);
-        }else{
-        // return '\0';
     }
-
+    
 }
 void write_to_file()
 {
     FILE *fp = fopen("stock.txt", "w");
-    fprintf(fp, "%s", stock_info);
+
     fclose(fp);
 }
 
@@ -122,35 +116,41 @@ int update_stock(int ID, int cnt)
     P(&target_stock->mutex);
     if (target_stock == NULL)
     {
+        V(&target_stock->mutex);
         return NOT_FOUND;
     }
     if (target_stock->cnt + cnt < 0)
     {
+        V(&target_stock->mutex);
         return NOT_ENOUGH;
     }
     
     target_stock->cnt += cnt;
     V(&target_stock->mutex);
-    set_stocks_info(root_tree);
     return SUCCESS;
 }
 
 char * process_request(char command[]){
-    char * prefix;
-    char * result = (char*) malloc(sizeof(char)* MAXBUF);
+    
+    char *prefix;
+    char *next;
+    char *result = (char *)malloc(sizeof(char) * MAXBUF);
+
     memset(result,0,MAXBUF);
-    prefix = strtok(command, " \n");
+    prefix = strtok_r(command, " \n",&next);
     if(strcmp(prefix,"show")== 0){
-        set_stocks_info(root_tree);
- 
-        strcpy(result,stock_info);
-    }else if(strcmp(prefix, "buy") == 0){
+       
+        set_stocks_info(root_tree, result);
+        
+    }
+    else if (strcmp(prefix, "buy") == 0)
+    {
         int id, cnt;
-        id = atoi(strtok(NULL," \n"));
-        cnt = atoi(strtok(NULL," \n"));
+        id = atoi(strtok_r(NULL," \n",&next));
+        cnt = atoi(strtok_r(NULL," \n",&next));
         cnt *= -1;
-        switch (update_stock(id,cnt))
-        {
+        int state = update_stock(id, cnt);
+        switch (state){
         case SUCCESS:
             strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
             break;
@@ -162,13 +162,15 @@ char * process_request(char command[]){
             strcpy(result,"Not enough left stock\n");
             break;
         }
-
-
-    }else if(strcmp(prefix, "sell") == 0 ){
+    }
+    else if (strcmp(prefix, "sell") == 0)
+    {
         int id, cnt;
-        id = atoi(strtok(NULL," \n"));
-        cnt = atoi(strtok(NULL," \n"));
-        switch (update_stock(id,cnt))
+        id = atoi(strtok_r(NULL, " \n", &next));
+        cnt = atoi(strtok_r(NULL, " \n", &next));
+     
+        int state = update_stock(id, cnt);
+        switch (state)
         {
         case SUCCESS:
             strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
@@ -179,6 +181,7 @@ char * process_request(char command[]){
             break;
         }
     }
+    // V(&buf_mutex);
     return result;
 }
 
@@ -198,7 +201,6 @@ int init_stock(){
         if(fscanf(fp,"%d %d %d", &id, &cnt, &price)>0)
             insert_stock(id, price, cnt);
     }
-    set_stocks_info(root_tree);
     //printf("%s\n", stock_info);
     fclose(fp);
     return 1;

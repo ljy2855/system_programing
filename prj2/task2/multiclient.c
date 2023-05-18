@@ -1,8 +1,8 @@
 #include "csapp.h"
 #include <time.h>
 
-#define MAX_CLIENT 100
-#define ORDER_PER_CLIENT 10
+#define MAX_CLIENT 200
+#define ORDER_PER_CLIENT 100
 #define STOCK_NUM 10
 #define BUY_SELL_MAX 10
 
