@@ -4,7 +4,6 @@
 /* $begin echoserverimain */
 #include "csapp.h"
 
-void echo(int connfd);
 void init_stock();
 void * connect_client(void *arg);
 char * process_request(char command[]);

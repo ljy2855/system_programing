@@ -126,7 +126,7 @@ int update_stock(int ID, int cnt)
         return NOT_ENOUGH;
     }
     target_stock->cnt += cnt;
-    set_stocks_info(root_tree);
+    //set_stocks_info(root_tree);
     return SUCCESS;
 }
 
