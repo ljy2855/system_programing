@@ -166,7 +166,7 @@ char * process_request(char command[]){
         switch (update_stock(id,cnt))
         {
         case SUCCESS:
-            strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
+            strcpy(result,"[sell] \033[0;32msuccess\033[0m\n");
             break;
         
         case NOT_FOUND:

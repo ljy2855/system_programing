@@ -105,8 +105,12 @@ void set_stocks_info(Stock *cur,char stock_info[])
 }
 void write_to_file()
 {
+    char *result = (char *)malloc(sizeof(char) * MAXBUF);
+    memset(result,0,MAXBUF);
+    set_stocks_info(root_tree,result);
     FILE *fp = fopen("stock.txt", "w");
-
+    fprintf(fp,"%s",result);
+    free(result);
     fclose(fp);
 }
 
@@ -173,7 +177,7 @@ char * process_request(char command[]){
         switch (state)
         {
         case SUCCESS:
-            strcpy(result,"[buy] \033[0;32msuccess\033[0m\n");
+            strcpy(result,"[sell] \033[0;32msuccess\033[0m\n");
             break;
         
         case NOT_FOUND:
