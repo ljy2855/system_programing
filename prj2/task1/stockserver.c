@@ -6,17 +6,16 @@
 
 
 typedef struct{
-    int maxfd;
-    fd_set read_set;
-    fd_set ready_set;
-    int nready;
-    int maxi;
-    int clientfd[FD_SETSIZE];
-    rio_t rio[FD_SETSIZE];
+    int maxfd; // max fd numbers
+    fd_set read_set; // check fd_set
+    fd_set ready_set; // checked fd_set
+    int nready; // checked fd numbers
+    int maxi; // max index of clientfd array
+    int clientfd[FD_SETSIZE]; // array that store client fd
+    rio_t rio[FD_SETSIZE]; // rio array that read buffer
 } pool;
 
 
-void echo(int connfd);
 void init_stock();
 void init_pool(int listenfd, pool *p);
 void add_client(int connfd, pool *p);
@@ -31,7 +30,7 @@ int main(int argc, char **argv)
     struct sockaddr_storage clientaddr;  /* Enough space for any address */  //line:netp:echoserveri:sockaddrstorage
     char client_hostname[MAXLINE], client_port[MAXLINE];
     static pool pool;
-    Signal(SIGINT,terminate_handler);
+    Signal(SIGINT,terminate_handler); // exit handler
 
     init_stock();
 
@@ -44,9 +43,11 @@ int main(int argc, char **argv)
     init_pool(listenfd,&pool);
 
     while (1){
-        pool.ready_set = pool.read_set;
+        pool.ready_set = pool.read_set; // copy checking fd_set
         pool.nready = Select(pool.maxfd+1, &pool.ready_set, NULL, NULL, NULL);
+        // select function pass nready
         if(FD_ISSET(listenfd,&pool.ready_set)){
+            // new connection
             clientlen = sizeof(struct sockaddr_storage);
             connfd = Accept(listenfd, (SA *)&clientaddr, &clientlen);
             Getnameinfo((SA *)&clientaddr, clientlen, client_hostname, MAXLINE,
@@ -60,7 +61,12 @@ int main(int argc, char **argv)
     
     exit(0);
 }
-
+/**
+ * @brief intialize pool
+ * 
+ * @param listenfd 
+ * @param p 
+ */
 void init_pool(int listenfd, pool *p){
     p->maxi = -1;
     memset(p->clientfd,-1,sizeof(int)*FD_SETSIZE);
@@ -69,6 +75,12 @@ void init_pool(int listenfd, pool *p){
     FD_SET(listenfd,&p->read_set);
 }
 
+/**
+ * @brief add new client and store fd into fd_set
+ * 
+ * @param connfd 
+ * @param p 
+ */
 void add_client(int connfd, pool *p){
     int i;
     p->nready--;
@@ -90,6 +102,11 @@ void add_client(int connfd, pool *p){
     }
 }
 
+/**
+ * @brief process checked fd_set 
+ * 
+ * @param p 
+ */
 void check_clients(pool *p){
     int i, connfd, n;
     char buf[MAXBUF];
@@ -126,7 +143,13 @@ void check_clients(pool *p){
         }
     }
 }
-
+/**
+ * @brief remove target client from pool
+ * 
+ * @param connfd 
+ * @param p 
+ * @param i 
+ */
 void close_client(int connfd,pool *p,int i){
     Close(connfd);
     FD_CLR(connfd,&p->read_set);

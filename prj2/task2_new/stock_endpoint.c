@@ -10,14 +10,22 @@ struct stock
     Stock * right_stock;
     int price;
     int cnt;
-    sem_t mutex;
+    int read_cnt;
+    sem_t mutex, mutex_read;
 };
 
 Stock *root_tree = NULL;
-
+/**
+ * @brief insert new stock in bst
+ * 
+ * @param ID 
+ * @param price 
+ * @param cnt 
+ */
 void insert_stock(int ID, int price, int cnt){
     Stock *new_stock = (Stock *)malloc(sizeof(Stock));
     Sem_init(&new_stock->mutex,0,1);
+    Sem_init(&new_stock->mutex_read,0,1);
     new_stock->ID = ID;
     new_stock->price = price;
     new_stock->cnt = cnt;
@@ -26,6 +34,7 @@ void insert_stock(int ID, int price, int cnt){
     
     if (root_tree == NULL)
     {
+        // if tree is empty
         root_tree = new_stock;
     }
     else
@@ -52,7 +61,12 @@ void insert_stock(int ID, int price, int cnt){
         }
     }
 }
-
+/**
+ * @brief Get the stock object from bst
+ * 
+ * @param ID 
+ * @return Stock* 
+ */
 Stock * get_stock(int ID){
     Stock *cur = root_tree;
     while(cur != NULL){
@@ -86,23 +100,44 @@ Stock * get_stock(int ID){
 }
 
 
-
+/**
+ * @brief Set the stocks info object to stock_info
+ * 
+ * @param cur 
+ * @param stock_info 
+ */
 void set_stocks_info(Stock *cur,char stock_info[])
 {
   
     
     char temp[200];
     if(cur != NULL){
-        P(&cur->mutex);
+        P(&cur->mutex_read);
+        cur->read_cnt++;
+        if (cur->read_cnt == 1) /* First in */
+            P(&cur->mutex);
+        V(&cur->mutex_read);
+
+        //critical section to read
         sprintf(temp, "%d %d %d\n",cur->ID,cur->cnt,cur->price);
         strcat(stock_info, temp);
-        
+
+        P(&cur->mutex_read);
+        cur->read_cnt--;
+        if (cur->read_cnt == 0) /* Last out */
+            V(&cur->mutex);
+        V(&cur->mutex_read);
+
         set_stocks_info(cur->left_stock,stock_info);
         set_stocks_info(cur->right_stock,stock_info);
-        V(&cur->mutex);
+        
     }
     
 }
+/**
+ * @brief write stock data from memory to file
+ * 
+ */
 void write_to_file()
 {
     char *result = (char *)malloc(sizeof(char) * MAXBUF);
@@ -114,10 +149,17 @@ void write_to_file()
     fclose(fp);
 }
 
+/**
+ * @brief update cnt target stock
+ * 
+ * @param ID 
+ * @param cnt 
+ * @return int 
+ */
 int update_stock(int ID, int cnt)
 {
     Stock *target_stock = get_stock(ID);
-    P(&target_stock->mutex);
+    P(&target_stock->mutex); // write lock
     if (target_stock == NULL)
     {
         V(&target_stock->mutex);
@@ -134,6 +176,12 @@ int update_stock(int ID, int cnt)
     return SUCCESS;
 }
 
+/**
+ * @brief process client request and return message
+ * 
+ * @param command 
+ * @return char* 
+ */
 char * process_request(char command[]){
     
     char *prefix;
@@ -143,13 +191,16 @@ char * process_request(char command[]){
     memset(result,0,MAXBUF);
     prefix = strtok_r(command, " \n",&next);
     if(strcmp(prefix,"show")== 0){
-       
+        // if request is show
         set_stocks_info(root_tree, result);
         
     }
     else if (strcmp(prefix, "buy") == 0)
     {
+        //if request is buy
         int id, cnt;
+
+        //parse request
         id = atoi(strtok_r(NULL," \n",&next));
         cnt = atoi(strtok_r(NULL," \n",&next));
         cnt *= -1;
@@ -169,6 +220,7 @@ char * process_request(char command[]){
     }
     else if (strcmp(prefix, "sell") == 0)
     {
+        //if request is sell
         int id, cnt;
         id = atoi(strtok_r(NULL, " \n", &next));
         cnt = atoi(strtok_r(NULL, " \n", &next));
@@ -188,7 +240,11 @@ char * process_request(char command[]){
     // V(&buf_mutex);
     return result;
 }
-
+/**
+ * @brief control-c handler that write file before exit
+ * 
+ * @param sig 
+ */
 void terminate_handler(int sig){
     printf("write to file...\n");
     write_to_file();
@@ -197,7 +253,11 @@ void terminate_handler(int sig){
     exit(0);
 }
 
-
+/**
+ * @brief intialize bst from stock.txt
+ * 
+ * @return int 
+ */
 int init_stock(){
     FILE *fp = fopen("stock.txt", "r");
     while(!feof(fp)){

@@ -33,7 +33,8 @@ int main(int argc, char **argv)
 	host = argv[1];
 	port = argv[2];
 	num_client = atoi(argv[3]);
-	gettimeofday(&tv, NULL);
+	
+	(&tv, NULL);
 	begin = (tv.tv_sec) * 1000 + (tv.tv_usec) / 1000;
 	sprintf(buf, "client :%d, request:%d\n", num_client, ORDER_PER_CLIENT);
 	Rio_writen(file_fd, buf, strlen(buf));
@@ -55,13 +56,16 @@ int main(int argc, char **argv)
 
 			for(i=0;i<ORDER_PER_CLIENT;i++){
 				//int option = rand() % 3;
-				int option = SET_RANDOM();
-				if(option == 0){//show
+				int option = SET_BUY;
+				if (option == 0)
+				{ // show
 					strcpy(buf, "show\n");
 				}
 				else if(option == 1){//buy
-					int list_num = rand() % STOCK_NUM + 1;
-					int num_to_buy = rand() % BUY_SELL_MAX + 1;//1~10
+					// int list_num = rand() % STOCK_NUM + 1;
+					// int num_to_buy = rand() % BUY_SELL_MAX + 1;//1~10
+					int list_num = 1;
+					int num_to_buy = 1;
 
 					strcpy(buf, "buy ");
 					sprintf(tmp, "%d", list_num);
@@ -72,9 +76,10 @@ int main(int argc, char **argv)
 					strcat(buf, "\n");
 				}
 				else if(option == 2){//sell
-					int list_num = rand() % STOCK_NUM + 1; 
+					// int list_num = rand() % STOCK_NUM + 1; 
 					int num_to_sell = rand() % BUY_SELL_MAX + 1;//1~10
-					
+
+					int list_num = 1;
 					strcpy(buf, "sell ");
 					sprintf(tmp, "%d", list_num);
 					strcat(buf, tmp);
@@ -89,7 +94,7 @@ int main(int argc, char **argv)
 				//Rio_writen(STDOUT_FILENO, buf, strlen(buf));
 				// Rio_readlineb(&rio, buf, MAXLINE);
 				Rio_readnb(&rio, buf, MAXLINE);
-				//Fputs(buf, stdout);
+				// Fputs(buf, stdout);
 
 				usleep(100000);
 			}

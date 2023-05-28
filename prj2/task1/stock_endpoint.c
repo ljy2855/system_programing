@@ -18,7 +18,13 @@ struct stock
 char  stock_info[MAXBUF];
 Stock *root_tree = NULL;
 
-
+/**
+ * @brief insert new stock into bst
+ * 
+ * @param ID 
+ * @param price 
+ * @param cnt 
+ */
 void insert_stock(int ID, int price, int cnt){
     Stock *new_stock = (Stock *)malloc(sizeof(Stock));
     new_stock->ID = ID;
@@ -55,7 +61,12 @@ void insert_stock(int ID, int price, int cnt){
         }
     }
 }
-
+/**
+ * @brief Get the stock object from bst
+ * 
+ * @param ID 
+ * @return Stock* 
+ */
 Stock * get_stock(int ID){
     Stock *cur = root_tree;
     while(cur != NULL){
@@ -88,7 +99,11 @@ Stock * get_stock(int ID){
 }
 
 
-
+/**
+ * @brief Set the stocks info object
+ * 
+ * @param cur 
+ */
 void set_stocks_info(Stock *cur)
 {
     if(cur == root_tree){
@@ -107,13 +122,23 @@ void set_stocks_info(Stock *cur)
     }
 
 }
+/**
+ * @brief write data to stock.txt
+ * 
+ */
 void write_to_file()
 {
     FILE *fp = fopen("stock.txt", "w");
     fprintf(fp, "%s", stock_info);
     fclose(fp);
 }
-
+/**
+ * @brief update cnt target stock
+ * 
+ * @param ID 
+ * @param cnt 
+ * @return int 
+ */
 int update_stock(int ID, int cnt)
 {
     Stock *target_stock = get_stock(ID);
@@ -129,7 +154,12 @@ int update_stock(int ID, int cnt)
     //set_stocks_info(root_tree);
     return SUCCESS;
 }
-
+/**
+ * @brief process client request and return message
+ * 
+ * @param command 
+ * @return char* 
+ */
 char * process_request(char command[]){
     char * prefix;
     char * result = (char*) malloc(sizeof(char)* MAXBUF);
@@ -176,7 +206,11 @@ char * process_request(char command[]){
     }
     return result;
 }
-
+/**
+ * @brief control-c handler that write file before exit
+ * 
+ * @param sig 
+ */
 void terminate_handler(int sig){
     printf("write to file...\n");
     write_to_file();
@@ -185,7 +219,11 @@ void terminate_handler(int sig){
     exit(0);
 }
 
-
+/**
+ * @brief initialize bst from stock.txt
+ * 
+ * @return int 
+ */
 int init_stock(){
     FILE *fp = fopen("stock.txt", "r");
     while(!feof(fp)){
