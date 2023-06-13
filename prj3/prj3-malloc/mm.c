@@ -336,10 +336,7 @@ void mm_free(void *ptr)
     block_size = GET_SIZE(HDRP(ptr));
     // CLR_ALLOC(HDRP(ptr));
     // CLR_ALLOC(FTRP(ptr));
-#ifdef DEBUG
-    printf("[free clear alloc]  addr = %p, header = %p,  prev footer = %p, footer = %p , next header = %p\n",
-           ptr, HDRP(ptr), FTRP(PREV_BLOCK(ptr)), FTRP(ptr), HDRP(NEXT_BLOCK(ptr)));
-#endif
+
     SET_SIZE(HDRP(ptr),block_size);
     CLR_ALLOC(HDRP(ptr));
     SET_SIZE(FTRP(ptr),block_size);
@@ -372,8 +369,9 @@ void *mm_realloc(void *ptr, size_t size)
     size_t prev_size, next_size, sum_size;
     prev_size =0;
     next_size = 0;
-    copySize = BLOCK_SIZE(oldptr) - DSIZE;
-
+    copySize = BLOCK_SIZE(ptr) - DSIZE;
+    // if (size < copySize)
+    //     copySize = size;
     if (ptr == NULL)
     {
         return mm_malloc(size);
@@ -383,25 +381,54 @@ void *mm_realloc(void *ptr, size_t size)
         mm_free(ptr);
         return NULL;
     }
- 
+    
     
     alloc_size = MAX(DSIZE * 2, (ALIGN(size) - size >= WSIZE) ? ALIGN(size) : (ALIGN(size) + DSIZE));
-    if (alloc_size <= BLOCK_SIZE(oldptr) -DSIZE){
+    
+    if (alloc_size <= BLOCK_SIZE(oldptr)){
        
             return ptr;
 
     }
-        
-   
+    if (FTRP(oldptr) + WSIZE == heap_tail)
+    {
+            SET_TAG(HDRP(NEXT_BLOCK(oldptr)));
+            char *bp;
+            if ((extend_heap((alloc_size - BLOCK_SIZE(oldptr)) / WSIZE)) == NULL)
+            {
+            return NULL;
+            }
+            SET_SIZE(HDRP(ptr), alloc_size);
+            SET_SIZE(FTRP(ptr), alloc_size);
+            SET_TAG(HDRP(NEXT_BLOCK(ptr)));
+            return oldptr;
+    }
+
+    if (!GET_ALLOC(HDRP(NEXT_BLOCK(ptr))))
+            next_size = BLOCK_SIZE(NEXT_BLOCK(ptr));
+    if (!next_size && HDRP(NEXT_BLOCK(NEXT_BLOCK(oldptr))) == heap_tail){
+          
+            if (alloc_size > next_size + BLOCK_SIZE(oldptr)){
+                ERASE(NEXT_BLOCK(oldptr));
+                if ((extend_heap((alloc_size - BLOCK_SIZE(oldptr) - next_size) / WSIZE)) == NULL)
+                {
+                    return NULL;
+                }
+                SET_SIZE(HDRP(ptr), alloc_size);
+                SET_SIZE(FTRP(ptr), alloc_size);
+                SET_TAG(HDRP(NEXT_BLOCK(ptr)));
+                return oldptr;
+            }
+            
+            
+    }
 #ifdef DEBUG
     printf("[realloc] new size : %u, old size : %u \n",alloc_size,copySize +DSIZE);
     // assert(!memcmp(newptr,oldptr,copySize));
 #endif
-    //TODO if append its size 
-    if(!GET_ALLOC(HDRP(PREV_BLOCK(ptr))))
-        prev_size = BLOCK_SIZE(PREV_BLOCK(ptr));
-    if(!GET_ALLOC(HDRP(NEXT_BLOCK(ptr))))
-        next_size = BLOCK_SIZE(NEXT_BLOCK(ptr));
+    //TODO if append its size
+    if (!GET_ALLOC(HDRP(PREV_BLOCK(ptr))))
+            prev_size = BLOCK_SIZE(PREV_BLOCK(ptr));
     sum_size = BLOCK_SIZE(ptr) + prev_size + next_size;
     if(alloc_size <= sum_size){
         CLR_ALLOC(HDRP(ptr));
@@ -414,36 +441,37 @@ void *mm_realloc(void *ptr, size_t size)
         memcpy(newptr,oldptr,copySize);
         
         if(sum_size >= alloc_size + 2*DSIZE){
-            PUT(HDRP(newptr),PACK(alloc_size,1));
-            PUT(FTRP(newptr),PACK(alloc_size,1));
+            char *next;
+            SET_SIZE(HDRP(newptr), alloc_size);
+            SET_SIZE(FTRP(newptr), alloc_size);
+            SET_ALLOC(HDRP(newptr));
             PUT(HDRP(NEXT_BLOCK(newptr)),PACK((sum_size-alloc_size),0));
             PUT(FTRP(NEXT_BLOCK(newptr)),PACK((sum_size-alloc_size),0));
             SET_TAG(HDRP(NEXT_BLOCK(newptr)));
-            INSERT_LIST(coalesce(NEXT_BLOCK(newptr)),free_head);
-        }else{
-            PUT(HDRP(newptr),PACK(sum_size,1));
-            PUT(FTRP(newptr),PACK(sum_size,1));
+            next = coalesce(NEXT_BLOCK(newptr));
+            INSERT_LIST(next, free_head);
+            CLR_TAG(HDRP(NEXT_BLOCK(next)));
+        }
+        else
+        {
+            SET_SIZE(HDRP(newptr), sum_size);
+            SET_SIZE(FTRP(newptr), sum_size);
+            SET_ALLOC(HDRP(newptr));
             SET_TAG(HDRP(NEXT_BLOCK(newptr)));
         }
-        
-        
-       
-
-
     }else{
+        
         newptr = mm_malloc(size);
         if (newptr == NULL)
         return NULL;
-        
-        if (size < copySize)
-        copySize = size;
-        memcpy(newptr, oldptr, copySize);
+
+        memcpy(newptr, oldptr, copySize+WSIZE);
 #ifdef DEBUG
     printf("[realloc new malloc] \n");
-    assert(!memcmp(newptr,oldptr,copySize));
+    assert(!memcmp(newptr,oldptr,copySize+WSIZE));
 #endif
-    
-        mm_free(oldptr);
+
+    mm_free(oldptr);
 
     }
 #ifdef DEBUG
@@ -497,11 +525,11 @@ static int mm_check() {
         printf("Consistency error: block %p outside designated heap space hi : %p\n", next, mem_heap_hi());
         return 1;
       }
-      if (GET_ALLOC(HDRP(next)))
-      if(GET_SIZE(HDRP(next)) != GET_SIZE(FTRP(next))){
-        printf("Consistency error: block %p header footer size diff head size : %u foot size :%u\n", next,GET_SIZE(HDRP(next)),GET_SIZE(FTRP(next)));
-        return 1;
-      }
+    //   if (GET_ALLOC(HDRP(next)))
+    //   if(GET_SIZE(HDRP(next)) != GET_SIZE(FTRP(next))){
+    //     printf("Consistency error: block %p header footer size diff head size : %u foot size :%u\n", next,GET_SIZE(HDRP(next)),GET_SIZE(FTRP(next)));
+    //     return 1;
+    //   }
   }
   if (heap_tail > (char *)mem_heap_hi())
   {

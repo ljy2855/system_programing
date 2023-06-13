@@ -129,6 +129,7 @@ void set_stocks_info(Stock *cur)
 void write_to_file()
 {
     FILE *fp = fopen("stock.txt", "w");
+    set_stocks_info(root_tree);
     fprintf(fp, "%s", stock_info);
     fclose(fp);
 }

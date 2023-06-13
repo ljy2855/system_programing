@@ -6,3 +6,6 @@ https://github.com/iWangMu/Book-CSAPP/raw/master/_Attachments/Computer_Systems_A
 
 # bst 활용
 https://github.com/coyorkdow/malloclab/blob/main/mm.c
+
+# debug
+https://condor.depaul.edu/glancast/374class/docs/malloclab-debugging.html
