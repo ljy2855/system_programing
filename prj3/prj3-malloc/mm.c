@@ -99,7 +99,7 @@ static char *tree_root = 0;
 static inline void *extend_heap(size_t words);
 static inline void *coalesce(void *bp);
 static inline void *find_fit_at_list(size_t size);
-static inline void *place(char *bp, size_t size);
+static inline void *place(char *, size_t );
 static inline int mm_check();
 /*
  * mm_init - initialize the malloc package.
@@ -177,72 +177,145 @@ static inline void *find_fit_at_list(size_t size){
     printf("find fit heap_pro : %p heap_epilogue : %p ....\n",heap_head,heap_tail);
 #endif
     char *cur = free_head;
-    while((cur = SUCC(cur)) != free_head){
-        if(BLOCK_SIZE(cur) >= size){
-            ERASE(cur);
+    char *temp = NULL;
+    // char cnt = 100;
+    while ((cur = SUCC(cur)) != free_head)
+    {
+        // if(!cnt--)
+        //     break;
+        if (BLOCK_SIZE(cur) >= size)
+        {
 #ifdef DEBUG
             printf("[fit]  allocated = %d, addr = %p, size = %u, asize = %u\n\n",
-                      GET_ALLOC(HDRP(cur)), cur, GET_SIZE(HDRP(cur)), size);
+                   GET_ALLOC(HDRP(cur)), cur, GET_SIZE(HDRP(cur)), size);
 #endif
-            return cur;
+            if(temp == NULL){
+                temp = cur;
+            }else{
+                if(BLOCK_SIZE(cur) < BLOCK_SIZE(temp)){
+                    temp = cur;
+                }
+            }
         }
     }
-#ifdef DEBUG
-    printf("[not fit]  \n\n");
-#endif
-    return NULL;
+    if(temp ==NULL)
+        return NULL;
+    ERASE(temp);
+    return temp;
 }
-static inline void *place(char * bp, size_t size){
-#ifdef DEBUG
-    printf("[before place] ptr is %p, size = %u, pred = %p, succ = %p,", bp,
-              GET_SIZE(HDRP(bp)), PRED(bp), SUCC(bp));
-    printf("  checking list...\n");
+// static inline void *place(char * bp, size_t size){
+// #ifdef DEBUG
+//     printf("[before place] ptr is %p, size = %u, pred = %p, succ = %p,", bp,
+//               GET_SIZE(HDRP(bp)), PRED(bp), SUCC(bp));
+//     printf("  checking list...\n");
 
+// #endif
+//     size_t block_size = BLOCK_SIZE(bp);
+//     char *next;
+//     if (size != block_size && block_size - size >= (2 * DSIZE))
+//     {
+//         //PUT(HDRP(bp), PACK(size, 1));
+//         //PUT(FTRP(bp), PACK(size, 1));
+//         SET_SIZE(HDRP(bp),size);
+//         SET_ALLOC(HDRP(bp));
+//         SET_SIZE(FTRP(bp),size);
+//         SET_ALLOC(FTRP(bp));
+
+//         next = NEXT_BLOCK(bp);
+        
+//         // PUT(HDRP(next), PACK(block_size - size, 0));
+//         // PUT(FTRP(next), PACK(block_size - size, 0));
+//         SET_SIZE(HDRP(next),(block_size - size));
+//         CLR_ALLOC(HDRP(next));
+//         SET_SIZE(FTRP(next),(block_size - size));
+//         CLR_ALLOC(FTRP(next));
+//         SET_TAG(HDRP(next));
+//         next = coalesce(next);
+//         INSERT_LIST(next, free_head);
+//         CLR_TAG(HDRP(NEXT_BLOCK(next)));
+// #ifdef DEBUG
+//         printf("[after split] next is %p, size = %u, pred = %p, succ = %p,", next,
+//                GET_SIZE(HDRP(next)), PRED(next), SUCC(next));
+//         printf("  checking list...\n");
+
+// #endif
+//     }
+//     else
+//     {
+//         SET_ALLOC(HDRP(bp));
+        
+        
+//     }
+//     SET_TAG(HDRP(NEXT_BLOCK(bp)));
+    
+// #ifdef DEBUG
+//     printf("[after place]  allocated = %d, addr = %p, size = %u, asize = %u\n\n",
+//            GET_ALLOC(HDRP(bp)), bp, GET_SIZE(HDRP(bp)), size);
+//     assert(!mm_check());
+// #endif
+//     return bp;
+// }
+#define SPLIT_BACK(asize, next_size) (asize < 96 || next_size < 32)
+void *place(char *bp, size_t asize) {
+#ifdef DEBUG
+  LOG_DEBUG("\n[before place] ptr is %p, size = %u, pred = %p, succ = %p,", bp,
+             GET_SIZE(HDRP(bp)), PRED(bp), SUCC(bp));
+  LOG_DEBUG("  checking list...\n ");
+  find_fit(1 << 31);
+  if (!trivial_split) {
+    assert(GET_TAG(HDRP(bp)));
+    assert(!GET_TAG(HDRP(NEXT_BLOCK(bp))));
+  }
 #endif
-    size_t block_size = BLOCK_SIZE(bp);
+  SET_ALLOC(HDRP(bp));
+  size_t size = GET_SIZE(HDRP(bp));
+  if (size > asize && size - asize >= 2 * DSIZE) {
+    size_t next_size = size - asize;
     char *next;
-    if (size != block_size && block_size - size >= (2 * DSIZE))
-    {
-        //PUT(HDRP(bp), PACK(size, 1));
-        //PUT(FTRP(bp), PACK(size, 1));
-        SET_SIZE(HDRP(bp),size);
-        SET_ALLOC(HDRP(bp));
-        SET_SIZE(FTRP(bp),size);
-        SET_ALLOC(FTRP(bp));
-
-        next = NEXT_BLOCK(bp);
-        
-        // PUT(HDRP(next), PACK(block_size - size, 0));
-        // PUT(FTRP(next), PACK(block_size - size, 0));
-        SET_SIZE(HDRP(next),(block_size - size));
-        CLR_ALLOC(HDRP(next));
-        SET_SIZE(FTRP(next),(block_size - size));
-        CLR_ALLOC(FTRP(next));
-        SET_TAG(HDRP(next));
-        next = coalesce(next);
-        INSERT_LIST(next, free_head);
-        CLR_TAG(HDRP(NEXT_BLOCK(next)));
-#ifdef DEBUG
-        printf("[after split] next is %p, size = %u, pred = %p, succ = %p,", next,
-               GET_SIZE(HDRP(next)), PRED(next), SUCC(next));
-        printf("  checking list...\n");
-
-#endif
-    }
-    else
-    {
-        SET_ALLOC(HDRP(bp));
-        
-        
+    if ( SPLIT_BACK(asize, next_size)) {
+      SET_SIZE(HDRP(bp), asize);
+      next = NEXT_BLOCK(bp);
+      PUT(HDRP(next), PACK(next_size, 0));
+      PUT(FTRP(next), PACK(next_size, 0));
+    } else {
+      next = bp;
+      SET_SIZE(HDRP(next), next_size);
+      PUT(FTRP(next), PACK(next_size, 0));
+      bp = NEXT_BLOCK(next);
+      SET_ALLOC(HDRP(bp));
+      SET_SIZE(HDRP(bp), asize);
     }
     SET_TAG(HDRP(NEXT_BLOCK(bp)));
-    
+    next = coalesce(next);
+    SET_TAG(HDRP(next));
+    CLR_ALLOC(HDRP(next));
+    CLR_TAG(HDRP(NEXT_BLOCK(next)));
+
+    INSERT_LIST(next, free_head);
+   
 #ifdef DEBUG
-    printf("[after place]  allocated = %d, addr = %p, size = %u, asize = %u\n\n",
-           GET_ALLOC(HDRP(bp)), bp, GET_SIZE(HDRP(bp)), size);
-    assert(!mm_check());
+    LOG_DEBUG(
+        "[splitting] next ptr is %p, asize = %u, next_size = %u, checking "
+        "list...\n",
+        next, asize, next_size);
+    find_fit(1 << 31);
+    assert(GET_TAG(HDRP(next)));
+    if (!trivial_split) {
+      if (SPLIT_BACK(asize, next_size)) {
+        assert(GET_TAG(HDRP(bp)));
+      } else {
+        assert(!GET_TAG(HDRP(bp)));
+      }
+    }
 #endif
-    return bp;
+  }
+  SET_TAG(HDRP(NEXT_BLOCK(bp)));
+#ifdef DEBUG
+  assert(GET_TAG(HDRP(NEXT_BLOCK(bp))));
+  LOG_DEBUG("[after place] checking list...\n ");
+  find_fit(1 << 31);
+#endif
+  return bp;
 }
 
 static inline void *extend_heap(size_t words){
@@ -280,6 +353,7 @@ static inline void *coalesce(void *bp){
     printf("[coalesce before] addr = %p, size = %u prev alloc : %d next alloc : %d\n",
            bp, GET_SIZE(HDRP(bp)), GET_TAG(HDRP(bp)), GET_ALLOC(HDRP(NEXT_BLOCK(bp))));
 #endif
+    void * last_bp = bp;
     size_t prev_alloc = GET_TAG(HDRP(bp));
     size_t next_alloc = GET_ALLOC(HDRP(NEXT_BLOCK(bp)));
     size_t size = GET_SIZE(HDRP(bp));
@@ -294,6 +368,7 @@ static inline void *coalesce(void *bp){
         size += GET_SIZE(HDRP(NEXT_BLOCK(bp)));
         SET_SIZE(HDRP(bp), size);
         PUT(FTRP(bp), PACK(size, 0));
+     
     }
     else if (!prev_alloc && next_alloc)
     { /* Case 3 */
@@ -302,6 +377,7 @@ static inline void *coalesce(void *bp){
         PUT(FTRP(bp), PACK(size, 0));
         SET_SIZE(HDRP(PREV_BLOCK(bp)), size);
         bp = PREV_BLOCK(bp);
+      
     }
     else
     { /* Case 4 */
@@ -311,6 +387,7 @@ static inline void *coalesce(void *bp){
         SET_SIZE(HDRP(PREV_BLOCK(bp)), size);
         PUT(FTRP(NEXT_BLOCK(bp)), PACK(size, 0));
         bp = PREV_BLOCK(bp);
+
     }
 #ifdef DEBUG
     printf("[coalesce finish] addr = %p, size = %u \n\n",
@@ -393,7 +470,6 @@ void *mm_realloc(void *ptr, size_t size)
     if (FTRP(oldptr) + WSIZE == heap_tail)
     {
             SET_TAG(HDRP(NEXT_BLOCK(oldptr)));
-            char *bp;
             if ((extend_heap((alloc_size - BLOCK_SIZE(oldptr)) / WSIZE)) == NULL)
             {
             return NULL;
